@@ -298,17 +298,13 @@
             </div>
         </div>
 
-        <div class="section">
-            <div class="section-header">Cloudflare Pages</div>
-            <div class="field" id="fieldPnlSubdomain">
-                <label>PnL Tracker Subdomain<span class="req">*</span></label>
-                <div class="url-prefix-wrap">
-                    <span class="url-prefix">https://</span>
-                    <input type="text" id="inputPnlSubdomain" placeholder="my-pnl" autocomplete="off">
-                    <span class="url-suffix">.pages.dev</span>
-                </div>
-                <div class="help">Enter your chosen subdomain only — e.g. 'my-pnl' becomes https://my-pnl.pages.dev. Use this exact name when creating your CF Pages project for the PnL Tracker.</div>
-                <div class="error-msg" id="errPnlSubdomain"></div>
+        <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:5px;padding:12px 14px;margin-bottom:16px;">
+            <div style="font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--muted);margin-bottom:6px;">PNL TRACKER</div>
+            <div style="font-family:var(--font-mono);font-size:9px;color:var(--ink);line-height:1.8;">
+                Deploy <b>pnl.html</b> as a separate Cloudflare
+                Pages project. Once live, open your journal →
+                Settings → PnL Tracker → enter the URL there.
+                <br>Both apps share the same Supabase project.
             </div>
         </div>
 
@@ -415,7 +411,6 @@
     function clearAllErrors() {
         setFieldError('fieldSupaUrl', 'errSupaUrl', '');
         setFieldError('fieldSupaKey', 'errSupaKey', '');
-        setFieldError('fieldPnlSubdomain', 'errPnlSubdomain', '');
         setFieldError('fieldPairs', 'errPairs', '');
     }
 
@@ -437,7 +432,7 @@ to deploy. Follow the steps below in order.
 ### 1.2 Run the database schema
 1. In your Supabase project go to SQL Editor
 2. Copy and run the schema SQL from the link below:
-   [Schema SQL — contact seller for link]
+   https://fxbook.pages.dev/schema.sql
 3. Confirm all tables were created successfully:
    trades, weeklies, accounts, trade_account_map,
    broker_profiles, asset_specs, archive_log, sync_meta,
@@ -540,13 +535,11 @@ For support contact the seller.
 
         const supaUrl = document.getElementById('inputSupaUrl').value.trim();
         const supaKey = document.getElementById('inputSupaKey').value.trim();
-        const pnlSubdomain = document.getElementById('inputPnlSubdomain').value.trim();
         const workerUrl = document.getElementById('inputWorkerUrl').value.trim();
 
         let hasError = false;
         if (!supaUrl) { setFieldError('fieldSupaUrl', 'errSupaUrl', 'Supabase Project URL is required.'); hasError = true; }
         if (!supaKey) { setFieldError('fieldSupaKey', 'errSupaKey', 'Supabase Anon Key is required.'); hasError = true; }
-        if (!pnlSubdomain) { setFieldError('fieldPnlSubdomain', 'errPnlSubdomain', 'PnL Tracker subdomain is required.'); hasError = true; }
         if (!pairs.length) { setFieldError('fieldPairs', 'errPairs', 'At least one pair is required.'); hasError = true; }
         if (hasError) return;
 
@@ -559,14 +552,12 @@ For support contact the seller.
             const journalTemplate = await fetch('./journal.html').then(r => r.text());
             const pnlTemplate     = await fetch('./pnl.html').then(r => r.text());
 
-            const pnlUrl    = 'https://' + pnlSubdomain.toLowerCase() + '.pages.dev';
             const pairsJson = JSON.stringify(pairs);
 
             let journal = journalTemplate;
             journal = journal.replace(/%%SUPA_URL%%/g,      supaUrl);
             journal = journal.replace(/%%SUPA_KEY%%/g,      supaKey);
             journal = journal.replace(/%%CF_WORKER%%/g,     workerUrl);
-            journal = journal.replace(/%%PNL_URL%%/g,       pnlUrl);
             journal = journal.replace(/%%DEFAULT_PAIRS%%/g, pairsJson);
 
             let pnl = pnlTemplate;
