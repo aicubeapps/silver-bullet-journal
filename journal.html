@@ -5686,7 +5686,7 @@
                         <div class="prog-bg"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
                         <span class="prog-label" id="progLabel">0/0</span>
                     </div>
-                    <div id="stripModelBadge" style="font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;white-space:nowrap;align-self:center;">OMAR</div>
+                    <div id="stripModelBadge" style="font-family:var(--font-mono);font-size:8px;font-weight:700;padding:2px 7px;border-radius:3px;background:rgba(255,255,255,.15);color:#fff;white-space:nowrap;align-self:center;">LIQUIDITY</div>
                 </div>
 
                 <div class="shell">
@@ -5711,11 +5711,11 @@
                     <div id="modelSelectorWrap" style="margin-bottom:12px;">
                         <div style="font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px;">Select Checklist Model</div>
                         <div style="display:flex;gap:6px;flex-wrap:wrap;">
-                            <button class="model-sel-btn active" data-model="omar" onclick="switchIdeaModel('omar')">
-                                <span style="font-size:13px">📐</span> Omar Model
+                            <button class="model-sel-btn active" data-model="liquidity" onclick="switchIdeaModel('liquidity')">
+                                <span style="font-size:13px">📐</span> Liquidity Model
                             </button>
-                            <button class="model-sel-btn" data-model="ttrades" onclick="switchIdeaModel('ttrades')">
-                                <span style="font-size:13px">⚡</span> TTrades Model
+                            <button class="model-sel-btn" data-model="mmxm" onclick="switchIdeaModel('mmxm')">
+                                <span style="font-size:13px">⚡</span> MMxM Model
                             </button>
                         </div>
                         <div id="modelEditNotice" style="display:none;font-family:var(--font-mono);font-size:9px;color:#3949ab;margin-top:6px;padding:5px 8px;background:#e8eaf6;border-radius:4px;border-left:3px solid #3949ab;">
@@ -7619,7 +7619,7 @@
             answers: {},
             kills: {},
             killOpen: false,
-            ideaModel: localStorage.getItem('ict_ideaModel') || 'omar',
+            ideaModel: localStorage.getItem('ict_ideaModel') || 'liquidity',
             ideaSS: [],
             cmSS: [],
             eoiSS: [],
@@ -7690,7 +7690,7 @@
         };
 
         // ════════════════════════════════════════════════════════════════════
-        // HTF ENGINE — OMAR (unchanged)
+        // HTF ENGINE — LIQUIDITY (unchanged)
         // ════════════════════════════════════════════════════════════════════
         const HTF_DISPLAY = {
             structure: { bullish: '▲ Bullish', bearish: '▼ Bearish' },
@@ -7818,8 +7818,8 @@
         }
 
         function getBias() {
-            if (S.ideaModel === 'ttrades') {
-                const result = runTTEngine(S.answers);
+            if (S.ideaModel === 'mmxm') {
+                const result = runMMxMEngine(S.answers);
                 if (!result) return null;
                 if (result.state === 'bullish_expansion' || result.state === 'bullish_continuation') return 'BULLISH';
                 if (result.state === 'bearish_expansion' || result.state === 'bearish_continuation') return 'BEARISH';
@@ -8203,15 +8203,15 @@
                   <div class="align-item"><div class="align-label">Direction</div><div class="align-value ${focus.cls}">${focus.label}</div></div>
                 </div>
                 <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:6px;padding-top:6px;border-top:1px solid var(--cream);">
-                  This data feeds the TTrades Daily Alignment Engine for day-to-day expectation mapping.
+                  This data feeds the MMxM Model Daily Alignment Engine for day-to-day expectation mapping.
                 </div>
               </div>
             </div>
           `;
         }
 
-        // ── OMAR Cards ──
-        const BIAS_CARDS_OMAR = [{
+        // ── LIQUIDITY Cards ──
+        const BIAS_CARDS_LIQUIDITY = [{
             id: 'bc_htf1',
             num: '01',
             title: 'Current Swing Structure',
@@ -8324,8 +8324,8 @@
             ]
         }];
 
-        // ── TTrades Engine ──
-        const TT_DISPLAY = {
+        // ── MMxM Model Engine ──
+        const MMXM_DISPLAY = {
             closure: {
                 above_prev_high: 'Closed Above Prev Day High',
                 below_prev_low: 'Closed Below Prev Day Low',
@@ -8344,7 +8344,7 @@
                 none: 'No Clear Target' },
         };
 
-        const TT_STATE_META = {
+        const MMXM_STATE_META = {
             bullish_expansion: { emoji: '🟩', label: 'Bullish Expansion Day', color: 'var(--bull)', bg: 'var(--bull-lt)' },
             bearish_expansion: { emoji: '🟥', label: 'Bearish Expansion Day', color: 'var(--bear)', bg: 'var(--bear-lt)' },
             bullish_continuation: { emoji: '🟢', label: 'Bullish Continuation Day', color: '#1a6b35', bg: '#d0f0da' },
@@ -8353,7 +8353,7 @@
             range: { emoji: '⚪', label: 'Range Day', color: 'var(--muted)', bg: 'var(--cream)' },
         };
 
-        const TT_STATE_RULES = [
+        const MMXM_STATE_RULES = [
             { state: 'bullish_expansion', test: (v) => (v.closure === 'above_prev_high' || v.closure ===
                     'swept_low_closed_inside') && v.cisd === 'bullish' && v.fractal === 'bullish' && v
                     .closeStrength === 'strong_bullish', confidence: 'high' },
@@ -8392,7 +8392,7 @@
             { state: 'range', test: () => true, confidence: 'low' },
         ];
 
-        const BIAS_CARDS_TTRADES = [{
+        const BIAS_CARDS_MMXM = [{
             id: 'tt01',
             num: '01',
             title: 'Daily Closure Event',
@@ -8512,13 +8512,13 @@
         function computeTTStateAndConfidence(ans) {
             const v = extractTTValues(ans);
             if (!v.closure || !v.cisd || !v.delivery || !v.fractal || !v.closeStrength || !v.extLiquidity) return null;
-            for (const rule of TT_STATE_RULES) {
+            for (const rule of MMXM_STATE_RULES) {
                 if (rule.test(v)) return { state: rule.state, confidence: rule.confidence };
             }
             return { state: 'range', confidence: 'low' };
         }
 
-        const TT_STATE_PLANS = {
+        const MMXM_STATE_PLANS = {
             bullish_expansion: [
                 'Expect continuation in the current bullish bias if price holds above the key dealing range / POI.',
                 'Look for a liquidity sweep against the bias followed by displacement back to the upside.',
@@ -8557,19 +8557,19 @@
             ],
         };
 
-        const TT_FALLBACK_PLAN = [
+        const MMXM_FALLBACK_PLAN = [
             'No clear state was identified — preserve capital and wait for confirmation.',
             'Require a liquidity sweep followed by displacement before considering entries.',
             'Only engage after MSS + reclaim / retest confirmation.',
         ];
 
-        function runTTEngine(ans) {
+        function runMMxMEngine(ans) {
             const result = computeTTStateAndConfidence(ans);
             if (!result) return null;
             const { state, confidence } = result;
-            const meta = TT_STATE_META[state];
+            const meta = MMXM_STATE_META[state];
             const v = extractTTValues(ans);
-            const plan = TT_STATE_PLANS[state] || TT_FALLBACK_PLAN;
+            const plan = MMXM_STATE_PLANS[state] || MMXM_FALLBACK_PLAN;
             return { state, confidence, meta, v, plan };
         }
 
@@ -8814,7 +8814,7 @@
                 trade_notes: t.tradeNotes || [],
                 checklist_answers: t.checklistAnswers || {},
                 checklist_kills: t.checklistKills || {},
-                checklist_model: t.checklistModel || 'omar',
+                checklist_model: t.checklistModel || 'liquidity',
                 wb_entry_id: t.wbEntryId || null,
                 intra_alignment: t.intraAlignment || null,
                 intra_decision: t.intraDecision || null,
@@ -8888,7 +8888,7 @@
                 _ssLoaded: r.screenshots !== undefined,
                 checklistAnswers: r.checklist_answers || {},
                 checklistKills: r.checklist_kills || {},
-                checklistModel: r.checklist_model || 'omar',
+                checklistModel: r.checklist_model || 'liquidity',
                 wbEntryId: r.wb_entry_id || null,
                 intraAlignment: r.intra_alignment || null,
                 intraDecision: r.intra_decision || null,
@@ -9314,13 +9314,13 @@
             const weekliesClosed = S.weeklies.filter(w => w.status === 'closed' && w.weeklyReview);
             snap.modelPerf = {
                 omar: (() => {
-                    const t = swingClosed.filter(t => t.checklistModel === 'omar');
+                    const t = swingClosed.filter(t => t.checklistModel === 'liquidity');
                     const correct = t.filter(t => t.biasMatch === 'YES').length;
                     const rVals = t.map(t => calcR(t)).filter(r => r !== null);
                     return { count: t.length, correct, sumR: rVals.reduce((a,b)=>a+b,0) };
                 })(),
                 tt: (() => {
-                    const t = swingClosed.filter(t => t.checklistModel === 'ttrades');
+                    const t = swingClosed.filter(t => t.checklistModel === 'mmxm');
                     const correct = t.filter(t => t.biasMatch === 'YES').length;
                     const rVals = t.map(t => calcR(t)).filter(r => r !== null);
                     return { count: t.length, correct, sumR: rVals.reduce((a,b)=>a+b,0) };
@@ -9938,7 +9938,7 @@
                 S.checklistEditId = null;
                 S.answers = {};
                 S.kills = {};
-                S.ideaModel = localStorage.getItem('ict_ideaModel') || 'omar';
+                S.ideaModel = localStorage.getItem('ict_ideaModel') || 'liquidity';
             }
             if (page !== 'idea' && page !== 'intraday') {
                 S._returnPage = page;
@@ -10051,7 +10051,7 @@
                     S.checklistEditId = null;
                     S.answers = {};
                     S.kills = {};
-                    S.ideaModel = localStorage.getItem('ict_ideaModel') || 'omar';
+                    S.ideaModel = localStorage.getItem('ict_ideaModel') || 'liquidity';
                 }
                 navTo(S._returnPage || 'open');
             }
@@ -10063,7 +10063,7 @@
                 S.checklistEditId = null;
                 S.answers = {};
                 S.kills = {};
-                S.ideaModel = localStorage.getItem('ict_ideaModel') || 'omar';
+                S.ideaModel = localStorage.getItem('ict_ideaModel') || 'liquidity';
                 const pairFld = document.getElementById('ideaPair');
                 const dateFld = document.getElementById('ideaDate');
                 const sessFld = document.getElementById('ideaSession');
@@ -10672,7 +10672,7 @@
             document.getElementById('wrPairDisplay').textContent = w.pair + ' — Week of ' + w.date;
 
             document.getElementById('wrSection1').innerHTML = `
-            <div class="review-section-title">1. WEEKLY FORECAST SUMMARY <span style="font-size:7px;color:var(--muted);font-weight:400;">(auto-populated from OMAR)</span></div>
+            <div class="review-section-title">1. WEEKLY FORECAST SUMMARY <span style="font-size:7px;color:var(--muted);font-weight:400;">(auto-populated from LIQUIDITY)</span></div>
             <div class="review-summary-grid">
               <div class="rs-item"><div class="rs-val" style="font-size:11px;">${envLabel}</div>Environment</div>
               <div class="rs-item"><div class="rs-val" style="font-size:11px;">${confLabel}</div>Confidence</div>
@@ -11877,11 +11877,11 @@
         }
 
         // ════════════════════════════════════════════════════════════════════
-        // OMAR BIAS CARDS (Daily Bias) — unchanged
+        // LIQUIDITY BIAS CARDS (Daily Bias) — unchanged
         // ════════════════════════════════════════════════════════════════════
 
         function getActiveCards() {
-            return S.ideaModel === 'ttrades' ? BIAS_CARDS_TTRADES : BIAS_CARDS_OMAR;
+            return S.ideaModel === 'mmxm' ? BIAS_CARDS_MMXM : BIAS_CARDS_LIQUIDITY;
         }
 
         function countAnswered() { return getActiveCards().flatMap(c => c.questions).filter(q => S.answers[q.id] && S
@@ -11950,8 +11950,8 @@
             const ans = countAnswered(),
                 tot = totalQs(),
                 hasAll = ans === tot;
-            const isTT = S.ideaModel === 'ttrades';
-            const result = isTT ? runTTEngine(S.answers) : runHTFEngine(S.answers);
+            const isTT = S.ideaModel === 'mmxm';
+            const result = isTT ? runMMxMEngine(S.answers) : runHTFEngine(S.answers);
             const bias = getBias();
             const sd = document.createElement('div');
             sd.className = 'score-card' + (result ? ' scored' : '');
@@ -11962,18 +11962,18 @@
                 const confLabel = (conf) => ({ high: '▲ High Confidence', medium: '◆ Medium Confidence',
                     low: '▽ Low Confidence' } [conf] || conf);
                 const ttSummaryRows = result ? [
-                    ['Closure Event', TT_DISPLAY.closure[result.v.closure] || '—'],
-                    ['Daily CISD', TT_DISPLAY.cisd[result.v.cisd] || '—'],
-                    ['Delivery Type', TT_DISPLAY.delivery[result.v.delivery] || '—'],
-                    ['Fractal Alignment', TT_DISPLAY.fractal[result.v.fractal] || '—'],
-                    ['Close Strength', TT_DISPLAY.close_strength[result.v.closeStrength] || '—'],
-                    ['Ext. Liquidity', TT_DISPLAY.ext_liquidity[result.v.extLiquidity] || '—'],
+                    ['Closure Event', MMXM_DISPLAY.closure[result.v.closure] || '—'],
+                    ['Daily CISD', MMXM_DISPLAY.cisd[result.v.cisd] || '—'],
+                    ['Delivery Type', MMXM_DISPLAY.delivery[result.v.delivery] || '—'],
+                    ['Fractal Alignment', MMXM_DISPLAY.fractal[result.v.fractal] || '—'],
+                    ['Close Strength', MMXM_DISPLAY.close_strength[result.v.closeStrength] || '—'],
+                    ['Ext. Liquidity', MMXM_DISPLAY.ext_liquidity[result.v.extLiquidity] || '—'],
                 ] : [];
                 sd.innerHTML = `<div class="card-head" style="${result?'background:'+result.meta.bg+';border-bottom:1.5px solid '+result.meta.color:''}">
               <div class="card-num" style="background:${result?result.meta.color:'var(--muted)'}">📅</div>
               <div class="card-title-wrap">
-                <div class="card-title" style="${result?'color:'+result.meta.color:''}">TTrades Daily Expectation</div>
-                <div class="card-tf">Next-day delivery path — TTrades rule-priority engine</div>
+                <div class="card-title" style="${result?'color:'+result.meta.color:''}">MMxM Model Daily Expectation</div>
+                <div class="card-tf">Next-day delivery path — MMxM Model rule-priority engine</div>
               </div>
               <div class="card-pts-badge" style="${result?'border-color:'+result.meta.color+';color:'+result.meta.color+';background:'+result.meta.bg:''}">${result?result.meta.emoji+' '+result.meta.label:'Answer all 6 questions'}</div>
             </div>
@@ -12078,18 +12078,18 @@
             if (!c) return;
             const killOn = Object.values(S.kills).some(v => v);
             const allAns = countAnswered() === totalQs();
-            const isTT = S.ideaModel === 'ttrades';
+            const isTT = S.ideaModel === 'mmxm';
             c.innerHTML = '';
             let icon, title, msg, bc;
             if (killOn) { icon = '⛔';
                 title = 'NO TRADE — KILL CONDITION ACTIVE';
                 msg = 'A kill condition is triggered above. Do not enter. Log a skip instead.';
                 bc = 'var(--bear)'; } else if (!allAns) { icon = '📋';
-                title = isTT ? 'Complete TTrades Daily Analysis' : 'Complete HTF Analysis';
+                title = isTT ? 'Complete MMxM Model Daily Analysis' : 'Complete HTF Analysis';
                 msg = isTT ? "Answer all 6 questions above to generate the Daily Expectation and Tomorrow's plan." :
                     'Answer all 6 questions above to generate the Market State, Confidence, and Trading Plan.';
                 bc = 'var(--border)'; } else if (isTT) {
-                const ttResult = runTTEngine(S.answers);
+                const ttResult = runMMxMEngine(S.answers);
                 const state = ttResult ? ttResult.state : 'range';
                 const verdicts = {
                     bullish_expansion: ['🟩', 'BULLISH EXPANSION DAY — FAVOR LONGS',
@@ -12170,7 +12170,7 @@
             _pendingUploadTradeId = crypto.randomUUID();
             S.checklistMode = null;
             S.checklistEditId = null;
-            S.ideaModel = localStorage.getItem('ict_ideaModel') || 'omar';
+            S.ideaModel = localStorage.getItem('ict_ideaModel') || 'liquidity';
             S.wbEntryId = null;
             const pairFld = document.getElementById('ideaPair');
             const dateFld = document.getElementById('ideaDate');
@@ -12211,8 +12211,8 @@
             const ans = countAnswered(),
                 tot = totalQs(),
                 hasAll = ans === tot;
-            const isTT = S.ideaModel === 'ttrades';
-            const result = hasAll ? (isTT ? runTTEngine(S.answers) : runHTFEngine(S.answers)) : null;
+            const isTT = S.ideaModel === 'mmxm';
+            const result = hasAll ? (isTT ? runMMxMEngine(S.answers) : runHTFEngine(S.answers)) : null;
             const meta = result ? result.meta : null;
             document.getElementById('scoreNum').textContent = ans;
             const ge = document.getElementById('scoreGrade');
@@ -12249,7 +12249,7 @@
             if (el) { el.textContent = bias || '—';
                 el.className = 'auto-field' + (bias === 'BULLISH' ? ' bull-f' : bias === 'BEARISH' ? ' bear-f' : ''); }
             const mb = document.getElementById('stripModelBadge');
-            if (mb) mb.textContent = isTT ? 'TTRADES' : 'OMAR';
+            if (mb) mb.textContent = isTT ? 'MMXM' : 'LIQUIDITY';
         }
 
         function saveIdeaAsOpen() {
@@ -12341,8 +12341,8 @@
         function openChecklistView(id) {
             const t = S.trades.find(t => idEq(t.id, id));
             if (!t || t.isIntraday) return;
-            const model = t.checklistModel || 'omar';
-            const cards = model === 'ttrades' ? BIAS_CARDS_TTRADES : BIAS_CARDS_OMAR;
+            const model = t.checklistModel || 'liquidity';
+            const cards = model === 'mmxm' ? BIAS_CARDS_MMXM : BIAS_CARDS_LIQUIDITY;
             const answers = t.checklistAnswers || {};
             const kills = t.checklistKills || {};
             let html = '';
@@ -12363,7 +12363,7 @@
             </div>`;
             });
             document.getElementById('checklistViewTitle').textContent =
-                `${t.pair} · ${t.date} — Checklist (${model === 'ttrades' ? 'TTrades' : 'Omar'})`;
+                `${t.pair} · ${t.date} — Checklist (${model === 'mmxm' ? 'MMxM Model' : 'Liquidity Model'})`;
             document.getElementById('checklistViewBody').innerHTML = html || '<div class="empty-state">No checklist data recorded for this trade.</div>';
             document.getElementById('checklistViewModal').classList.add('open');
         }
@@ -12421,7 +12421,7 @@
             S.answers = { ...(t.checklistAnswers || {}) };
             S.kills = { ...(t.checklistKills || {}) };
             S.tradeType = t.tradeType || 'BUY';
-            S.ideaModel = t.checklistModel || 'omar';
+            S.ideaModel = t.checklistModel || 'liquidity';
             S.wbEntryId = t.wbEntryId || null;
             S.checklistMode = 'edit';
             navTo('idea');
@@ -12437,7 +12437,7 @@
             saveTrade(t);
             S.checklistMode = null;
             S.checklistEditId = null;
-            S.ideaModel = localStorage.getItem('ict_ideaModel') || 'omar';
+            S.ideaModel = localStorage.getItem('ict_ideaModel') || 'liquidity';
             showToast('✓ Checklist updated — ' + deriveDisplayGrade(t));
             navTo('open');
         }
@@ -12463,8 +12463,8 @@
         // Source of truth:
         //   Intraday closed  → trade.intraScores.grade  (A+ / A / B / Invalid)
         //   Weekly Bias      → runWBEngine  → envData.envLabel
-        //   Daily OMAR       → runHTFEngine → envData.envLabel
-        //   TTrades          → runTTEngine  → meta.label  (no envData on TTrades)
+        //   Daily LIQUIDITY       → runHTFEngine → envData.envLabel
+        //   MMxM Model          → runMMxMEngine  → meta.label  (no envData on MMxM Model)
         // Never reads t.score or t.grade (legacy broken pts-based fields)
         // ════════════════════════════════════════════════════════════════════
 
@@ -12482,25 +12482,25 @@
             const ans = trade.checklistAnswers;
             if (!ans || Object.keys(ans).length === 0) return 'N/A';
 
-            const model = trade.checklistModel || 'omar';
+            const model = trade.checklistModel || 'liquidity';
 
-            // ── Layer 1: Weekly Bias (Weekly OMAR engine) ──
+            // ── Layer 1: Weekly Bias (Weekly LIQUIDITY engine) ──
             if (model === 'weekly') {
                 const result = runWBEngine(ans);
                 if (!result) return 'N/A';
                 return result.envData?.envLabel || result.meta?.label || 'N/A';
             }
 
-            // ── Layer 2a: Daily OMAR ──
-            if (model === 'omar') {
+            // ── Layer 2a: Daily LIQUIDITY ──
+            if (model === 'liquidity') {
                 const result = runHTFEngine(ans);
                 if (!result) return 'N/A';
                 return result.envData?.envLabel || result.meta?.label || 'N/A';
             }
 
-            // ── Layer 2b: TTrades (no envData — meta.label only) ──
-            if (model === 'ttrades') {
-                const result = runTTEngine(ans);
+            // ── Layer 2b: MMxM Model (no envData — meta.label only) ──
+            if (model === 'mmxm') {
+                const result = runMMxMEngine(ans);
                 if (!result) return 'N/A';
                 return result.meta?.label || 'N/A';
             }
@@ -12519,7 +12519,7 @@
             if (g === 'B'  || g === 'B Environment')  return 'b';
             if (g === 'C'  || g === 'C Environment')  return 'c';
             if (g === 'Invalid') return 'invalid';
-            // TTrades meta.label — map directional states to visual tiers
+            // MMxM Model meta.label — map directional states to visual tiers
             if (g === 'Bullish Expansion Day' || g === 'Bearish Expansion Day') return 'aplus';
             if (g === 'Bullish Continuation Day' || g === 'Bearish Continuation Day') return 'a';
             if (g === 'Reversal Day') return 'b';
@@ -12541,17 +12541,17 @@
         }
 
         // ════════════════════════════════════════════════════════════════════
-        // ALIGNMENT ENGINE — measures agreement between Weekly / Daily / TTrades
+        // ALIGNMENT ENGINE — measures agreement between Weekly / Daily / MMxM Model
         // Pure function — derived only, never persisted
         // Parameters: three engine result objects (or null if not available)
         //   weeklyResult  → runWBEngine(w.wbChecklistAnswers)
         //   dailyResult   → runHTFEngine(t.checklistAnswers) when model=omar
-        //   ttResult      → runTTEngine(t.checklistAnswers)  when model=ttrades
+        //   ttResult      → runMMxMEngine(t.checklistAnswers)  when model=ttrades
         // ════════════════════════════════════════════════════════════════════
 
         function deriveAlignmentStatus(weeklyResult, dailyResult, ttResult) {
             // Helper: resolve a result object to a simple directional string
-            // Handles both OMAR/Weekly states and TTrades states
+            // Handles both LIQUIDITY/Weekly states and MMxM Model states
             function toDirection(result) {
                 if (!result) return null;
                 const s = result.state || '';
@@ -12586,9 +12586,9 @@
                 };
             }
 
-            // ── Partial Alignment: Weekly and Daily agree; TTrades neutral/absent ──
+            // ── Partial Alignment: Weekly and Daily agree; MMxM Model neutral/absent ──
             if (wDir && dDir && wDir === dDir && wDir !== 'NEUTRAL') {
-                // TTrades directly opposes the W+D consensus → Conflict, not Partial
+                // MMxM Model directly opposes the W+D consensus → Conflict, not Partial
                 if (ttDir && ttDir !== 'NEUTRAL' && ttDir !== wDir) {
                     return {
                         stars: '★☆☆☆☆',
@@ -12597,7 +12597,7 @@
                         direction: null
                     };
                 }
-                // TTrades neutral or absent → Partial
+                // MMxM Model neutral or absent → Partial
                 return {
                     stars: '★★★☆☆',
                     label: 'Partial Alignment',
@@ -12606,7 +12606,7 @@
                 };
             }
 
-            // ── Conflict: Weekly and Daily disagree OR TTrades opposes directional bias ──
+            // ── Conflict: Weekly and Daily disagree OR MMxM Model opposes directional bias ──
             const directionalDirs = [wDir, dDir].filter(d => d && d !== 'NEUTRAL');
             const hasConflict = directionalDirs.length === 2 && directionalDirs[0] !== directionalDirs[1];
             const ttOpposes = ttDir && ttDir !== 'NEUTRAL' && wDir && dDir &&
@@ -13033,11 +13033,11 @@
                     <div style="display:flex;flex-direction:column;gap:10px;max-width:320px;margin:0 auto;">
                         <button onclick="navTo('idea')" style="font-family:var(--font-mono);font-size:9px;font-weight:700;padding:12px 16px;border:1.5px solid var(--gold);background:var(--gold-lt);color:#7a5c00;border-radius:6px;cursor:pointer;text-align:left;line-height:1.5;">
                             <div style="font-size:11px;margin-bottom:3px;">📊 Open Daily Bias with Liquidity Logic</div>
-                            <div style="font-weight:400;opacity:0.8;">Omar Model — HTF sweep + displacement checklist</div>
+                            <div style="font-weight:400;opacity:0.8;">Liquidity Model — HTF sweep + displacement checklist</div>
                         </button>
                         <button onclick="navTo('idea')" style="font-family:var(--font-mono);font-size:9px;font-weight:700;padding:12px 16px;border:1.5px solid #9fa8da;background:#e8eaf6;color:#283593;border-radius:6px;cursor:pointer;text-align:left;line-height:1.5;">
                             <div style="font-size:11px;margin-bottom:3px;">⚡ Open Daily Bias under CRT Theory</div>
-                            <div style="font-weight:400;opacity:0.8;">TTrades Model — closure, CISD + delivery checklist</div>
+                            <div style="font-weight:400;opacity:0.8;">MMxM Model — closure, CISD + delivery checklist</div>
                         </button>
                     </div>
                 </div>`;
@@ -13061,7 +13061,7 @@
                     'var(--cream)';
                 const biasBorder = t.biasSet === 'BULLISH' ? 'var(--bull)' : t.biasSet === 'BEARISH' ? 'var(--bear)' :
                     'var(--border)';
-                const _model = t.checklistModel || 'omar';
+                const _model = t.checklistModel || 'liquidity';
                 const _ans = t.checklistAnswers || {};
                 let _marketState = '',
                     _marketStateBg = 'var(--cream)',
@@ -13072,7 +13072,7 @@
                 let _envLabel = '',
                     _envBg = 'var(--cream)',
                     _envColor = 'var(--muted)';
-                if (_model === 'omar') {
+                if (_model === 'liquidity') {
                     const _r = runHTFEngine(_ans);
                     if (_r) {
                         _marketState = _r.meta ? _r.meta.label : '';
@@ -13090,7 +13090,7 @@
                             _envColor = _r.envData.envColor; }
                     }
                 } else {
-                    const _r = runTTEngine(_ans);
+                    const _r = runMMxMEngine(_ans);
                     if (_r) {
                         _marketState = _r.meta ? _r.meta.label : '';
                         _marketStateBg = _r.meta ? _r.meta.bg : 'var(--cream)';
@@ -13116,7 +13116,7 @@
                   <div style="margin-top:4px;display:flex;gap:4px;flex-wrap:wrap">${tagHtml}</div>
                 </div>
                 <div class="otc-intel">
-                  <span class="otc-intel-model-badge ${_model==='ttrades'?'otc-intel-model-tt':'otc-intel-model-omar'}">${_model==='ttrades'?'TTrades':'Omar'}</span>
+                  <span class="otc-intel-model-badge ${_model==='mmxm'?'otc-intel-model-tt':'otc-intel-model-omar'}">${_model==='mmxm'?'MMxM Model':'Liquidity Model'}</span>
                   ${t.biasSet?`<div class="otc-intel-row"><span class="otc-intel-label">Bias</span><span class="otc-intel-val" style="background:${biasBg};color:${biasColor};border-color:${biasBorder}">${t.biasSet==='BULLISH'?'▲ ':t.biasSet==='BEARISH'?'▼ ':''}${t.biasSet}</span></div>`:''}
                   ${_marketState?`<div class="otc-intel-sep"></div><div class="otc-intel-row"><span class="otc-intel-label">State</span><span class="otc-intel-val" style="background:${_marketStateBg};color:${_marketStateColor}">${_marketState}</span></div>`:''}
                   ${_confidence?`<div class="otc-intel-row"><span class="otc-intel-label">Conf.</span><span class="otc-intel-val" style="background:${_confBg};color:${_confColor}">${_confidence}</span></div>`:''}
@@ -14036,7 +14036,7 @@
               <span style="font-family:var(--font-mono);font-size:14px;font-weight:700;color:${rColor}">${rDisplay}</span>
               ${t.isPaper?'<span class="badge-paper">📝 PAPER TRADE</span>':''}
               ${t.isIntraday&&!t.weeklyLinkId?'<span class="badge-scalp">⚡ SCALP TRADE</span>':''}
-              ${!t.isIntraday?`<span class="otc-intel-model-badge ${(t.checklistModel||'omar')==='ttrades'?'otc-intel-model-tt':'otc-intel-model-omar'}">${(t.checklistModel||'omar')==='ttrades'?'TTrades':'Omar'}</span>`:''}
+              ${!t.isIntraday?`<span class="otc-intel-model-badge ${(t.checklistModel||'liquidity')==='mmxm'?'otc-intel-model-tt':'otc-intel-model-omar'}">${(t.checklistModel||'liquidity')==='mmxm'?'MMxM Model':'Liquidity Model'}</span>`:''}
               ${t.biasSet?`<span style="font-family:var(--font-mono);font-size:9px;padding:3px 8px;border-radius:3px;background:var(--cream);color:${biasColor};border:1px solid ${biasColor}">${biasArrow}${t.biasSet}</span>`:''}
               ${t.biasPlayed?`<span style="font-family:var(--font-mono);font-size:9px;color:var(--muted)">Played: ${t.biasPlayed} <b style="color:${t.biasMatch==='YES'?'var(--bull)':'var(--bear)'}">(${t.biasMatch})</b></span>`:''}
               ${!t.isIntraday?`<span style="font-family:var(--font-mono);font-size:9px;color:#3949ab;text-decoration:underline;cursor:pointer;margin-left:auto;" onclick="openChecklistView('${t.id}')">📋 View Checklist</span>`:''}
@@ -14202,30 +14202,30 @@
             let wTotal = weeklyClosed.length;
             let wCorrect = weeklyClosed.filter(w => w.weeklyReview?.biasAccuracy?.result === 'Correct').length;
 
-            // Omar — only trades with an explicit YES/NO bias match
-            const omarSet = closed.filter(t => t.checklistModel === 'omar' &&
+            // Liquidity Model — only trades with an explicit YES/NO bias match
+            const omarSet = closed.filter(t => t.checklistModel === 'liquidity' &&
                 (t.biasMatch === 'YES' || t.biasMatch === 'NO'));
             let oTotal = omarSet.length;
             let oCorrect = omarSet.filter(t => t.biasMatch === 'YES').length;
             const omarRVals = omarSet.map(t => calcR(t)).filter(r => r !== null);
             const omarSumR = omarRVals.reduce((a, b) => a + b, 0);
 
-            // TTrades — only trades with an explicit YES/NO bias match
-            const ttSet = closed.filter(t => t.checklistModel === 'ttrades' &&
+            // MMxM Model — only trades with an explicit YES/NO bias match
+            const ttSet = closed.filter(t => t.checklistModel === 'mmxm' &&
                 (t.biasMatch === 'YES' || t.biasMatch === 'NO'));
             let ttTotal = ttSet.length;
             let ttCorrect = ttSet.filter(t => t.biasMatch === 'YES').length;
             const ttRVals = ttSet.map(t => calcR(t)).filter(r => r !== null);
             const ttSumR = ttRVals.reduce((a, b) => a + b, 0);
 
-            // Omar — avg R across all Omar closed trades (for Section 7 display)
-            const omarAllRVals = closed.filter(t => t.checklistModel === 'omar')
+            // Liquidity Model — avg R across all Liquidity Model closed trades (for Section 7 display)
+            const omarAllRVals = closed.filter(t => t.checklistModel === 'liquidity')
                 .map(t => calcR(t)).filter(r => r !== null);
             const omarAvgR = omarAllRVals.length > 0
                 ? omarAllRVals.reduce((a, b) => a + b, 0) / omarAllRVals.length : 0;
 
-            // TTrades — avg R across all TTrades closed trades
-            const ttAllRVals = closed.filter(t => t.checklistModel === 'ttrades')
+            // MMxM Model — avg R across all MMxM Model closed trades
+            const ttAllRVals = closed.filter(t => t.checklistModel === 'mmxm')
                 .map(t => calcR(t)).filter(r => r !== null);
             const ttAvgR = ttAllRVals.length > 0
                 ? ttAllRVals.reduce((a, b) => a + b, 0) / ttAllRVals.length : 0;
@@ -14402,9 +14402,9 @@
             const items = [
                 { key: 'weekly', label: 'Weekly Bias', acc: acc.weekly, note: acc.weekly === null ? 'Need 3+ closed weeklies' :
                         '' },
-                { key: 'omar', label: 'Daily Omar', acc: acc.omar, note: acc.omar === null ? 'Need 3+ closed Omar trades' :
+                { key: 'liquidity', label: 'Daily Liquidity Model', acc: acc.omar, note: acc.omar === null ? 'Need 3+ closed Liquidity Model trades' :
                         '' },
-                { key: 'tt', label: 'TTrades', acc: acc.tt, note: acc.tt === null ? 'Need 3+ closed TTrades trades' :
+                { key: 'tt', label: 'MMxM Model', acc: acc.tt, note: acc.tt === null ? 'Need 3+ closed MMxM Model trades' :
                         '' },
             ];
             const html = items.map(i => {
@@ -15660,8 +15660,8 @@
 
         function tradeScorePill(t, extraStyle) {
             const sty = extraStyle || '';
-            const model = t.checklistModel || 'omar';
-            if (!t.isIntraday && model === 'omar') {
+            const model = t.checklistModel || 'liquidity';
+            if (!t.isIntraday && model === 'liquidity') {
                 const ans = t.checklistAnswers || {};
                 const result = runHTFEngine(ans);
                 if (!result) return '';
@@ -15670,13 +15670,13 @@
                 return '<span class="pill pill-' + gc + '" style="' + sty + '" title="HTF: ' + result.meta.label + '">' +
                     env.envLabel + '</span>';
             }
-            if (!t.isIntraday && model === 'ttrades') {
+            if (!t.isIntraday && model === 'mmxm') {
                 const ans = t.checklistAnswers || {};
-                const result = runTTEngine(ans);
+                const result = runMMxMEngine(ans);
                 if (!result) return '';
                 const stateGc = { bullish_expansion: 'aplus', bullish_continuation: 'a', bearish_expansion: 'aplus',
                     bearish_continuation: 'a', reversal: 'b', range: 'none' } [result.state] || 'none';
-                return '<span class="pill pill-' + stateGc + '" style="' + sty + '" title="TTrades: ' + result.meta
+                return '<span class="pill pill-' + stateGc + '" style="' + sty + '" title="MMxM Model: ' + result.meta
                     .label + '">' + result.meta.label + '</span>';
             }
             // Intraday: use deriveDisplayGrade/Score (reads intraScores, not broken t.grade/t.score)
@@ -17909,8 +17909,8 @@ NEXT_WEEK: [one concrete focus tied to this week's observations]`;
             let html = `<div class="insight-grid-3">`;
             const items = [
                 { key: 'weekly', label: 'Weekly Bias', data: data.weekly, color: '#3949ab', bg: '#e8eaf6' },
-                { key: 'omar', label: 'Daily Omar', data: data.omar, color: 'var(--gold)', bg: 'var(--gold-lt)' },
-                { key: 'tt', label: 'TTrades', data: data.tt, color: '#1b5e20', bg: '#e8f5e9' },
+                { key: 'liquidity', label: 'Daily Liquidity Model', data: data.omar, color: 'var(--gold)', bg: 'var(--gold-lt)' },
+                { key: 'tt', label: 'MMxM Model', data: data.tt, color: '#1b5e20', bg: '#e8f5e9' },
             ];
             items.forEach(item => {
                 const d = item.data;
@@ -17932,7 +17932,7 @@ NEXT_WEEK: [one concrete focus tied to this week's observations]`;
             const models = [data.omar, data.tt].filter(d => d.count >= 3);
             if (models.length >= 2) {
                 const best = models.reduce((a, b) => (a.acc > b.acc ? a : b));
-                const bestLabel = models === data.omar ? 'Omar' : 'TTrades';
+                const bestLabel = models === data.omar ? 'Liquidity Model' : 'MMxM Model';
                 html +=
                     `<div style="margin-top:10px;padding:6px 10px;background:var(--cream);border-radius:4px;font-size:10px;color:var(--muted);">🤖 <strong>${bestLabel}</strong> has the highest accuracy at ${best.acc.toFixed(1)}%.</div>`;
             }
@@ -18117,16 +18117,16 @@ NEXT_WEEK: [one concrete focus tied to this week's observations]`;
             const totalSkips = skipped.length;
             // Determine correct skips: where the Daily Bias engine itself justified no trade —
             // either an explicit kill condition was active, or the engine state was Neutral/Range
-            // (Omar: 'neutral', TTrades: 'range'). These are the only Daily Bias-layer signals;
+            // (Liquidity Model: 'neutral', MMxM Model: 'range'). These are the only Daily Bias-layer signals;
             // Intraday Execution Engine fields (intraDecision/intraKill) do not apply here since
             // they are never populated on non-intraday (Daily Bias) trades.
             const noTradeDecisions = skipped.filter(t => {
                 const killOn = Object.values(t.checklistKills || {}).some(v => v);
                 if (killOn) return true;
-                const model = t.checklistModel || 'omar';
+                const model = t.checklistModel || 'liquidity';
                 const ans = t.checklistAnswers || {};
-                if (model === 'ttrades') {
-                    const result = runTTEngine(ans);
+                if (model === 'mmxm') {
+                    const result = runMMxMEngine(ans);
                     return result?.state === 'range';
                 }
                 const result = runHTFEngine(ans);
