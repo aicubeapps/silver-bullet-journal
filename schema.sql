@@ -6,10 +6,11 @@
 
 -- ── sync_meta ──────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS sync_meta (
-  user_id       UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  last_modified TIMESTAMPTZ,
-  last_device   TEXT,
-  pnl_url       TEXT
+  user_id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  last_modified    TIMESTAMPTZ,
+  last_device      TEXT,
+  pnl_url          TEXT,
+  discord_channels JSONB
 );
 ALTER TABLE sync_meta ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own sync_meta" ON sync_meta
