@@ -6346,6 +6346,22 @@
                         </div>
                     </div>
 
+                    <!-- PNL TRACKER URL -->
+                    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px;">
+                        <div style="padding:10px 14px;background:var(--cream);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);">PNL TRACKER</div>
+                        <div style="padding:14px;">
+                            <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);margin-bottom:12px;line-height:1.7;">
+                                Enter your PnL Tracker URL to embed it in the journal.
+                                Deploy your PnL Tracker to Cloudflare Pages first,
+                                then paste the URL here.
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center;">
+                                <input type="text" id="settingsPnlUrl" placeholder="https://your-pnl-tracker.pages.dev" style="flex:1;padding:8px;border:1.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-family:var(--font-mono);font-size:11px;">
+                                <button onclick="savePnlUrl(document.getElementById('settingsPnlUrl').value)" style="font-family:var(--font-mono);font-size:8px;font-weight:700;padding:8px 14px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:4px;cursor:pointer;white-space:nowrap;">SAVE</button>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- EBP TRACKER INTEGRATION -->
                     <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px;">
                         <div style="padding:10px 14px;background:var(--cream);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);">EBP TRACKER INTEGRATION</div>
@@ -7175,7 +7191,7 @@
             SUPA_URL:      '%%SUPA_URL%%',
             SUPA_KEY:      '%%SUPA_KEY%%',
             CF_WORKER:     '%%CF_WORKER%%',
-            PNL_URL:       '%%PNL_URL%%',
+            PNL_URL:       null,
             DEFAULT_PAIRS: %%DEFAULT_PAIRS%%,
         };
         // ════════════════════════════════════════════════════════════════════
@@ -7253,6 +7269,22 @@
                 { onConflict: 'user_id' });
                 setCachedLastMod(ts);
             } catch (e) { console.warn('sync_meta update failed', e); }
+        }
+
+        async function savePnlUrl(url) {
+            if (!_currentUser) return;
+            const clean = (url || '').trim().replace(/\/$/, '');
+            try {
+                await _sb.from('sync_meta').upsert(
+                    { user_id: _currentUser.id, pnl_url: clean || null },
+                    { onConflict: 'user_id' }
+                );
+                CONFIG.PNL_URL = clean || null;
+                initPnlPage();
+                showToast('PnL Tracker URL saved ✓');
+            } catch (e) {
+                showToast('Save failed: ' + e.message, 'err');
+            }
         }
 
         // ── IndexedDB screenshot cache ──
@@ -8838,12 +8870,13 @@
             setSyncStatus('syncing');
             loadPnlAccounts(); // fire-and-forget — non-blocking, non-fatal if tracker unreachable
             try {
-                const { data: meta, error: metaErr } = await _sb.from('sync_meta').select('last_modified,last_device').eq('user_id',
+                const { data: meta, error: metaErr } = await _sb.from('sync_meta').select('last_modified,last_device,pnl_url').eq('user_id',
                     _currentUser.id).maybeSingle();
                 if (metaErr) throw metaErr;
                 const serverLastMod = meta ? meta.last_modified : null;
                 if (serverLastMod) S.serverLastMod = serverLastMod;
                 if (meta?.last_device) S.serverLastDevice = meta.last_device;
+                if (meta?.pnl_url) { CONFIG.PNL_URL = meta.pnl_url; initPnlPage(); }
                 const cachedLastMod = getCachedLastMod();
                 if (!force && serverLastMod && serverLastMod === cachedLastMod && loadLocalCache()) {
                     setSyncStatus('synced');
@@ -15701,6 +15734,8 @@
             }
             refreshSsCacheInfo();
             populateArchiveInfo();
+            const pnlUrlEl = document.getElementById('settingsPnlUrl');
+            if (pnlUrlEl && CONFIG.PNL_URL) pnlUrlEl.value = CONFIG.PNL_URL;
             const ebpUrl = localStorage.getItem('ict_ebp_worker_url');
             const ebpSec = localStorage.getItem('ict_ebp_secret');
             const ebpUrlEl = document.getElementById('ebpWorkerUrl');
