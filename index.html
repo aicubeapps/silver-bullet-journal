@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ICT Trade Journal — Setup</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap');
+
+    :root {
+        --bg:      #12100e;
+        --surface: #1a1714;
+        --border:  #2a2520;
+        --ink:     #f3ede3;
+        --muted:   #8a8172;
+        --gold:    #c8a84a;
+        --err:     #e0645a;
+        --font-sans: 'Manrope', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        --font-mono: 'Outfit', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        min-height: 100vh;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-sans);
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        padding: 40px 16px;
+    }
+
+    .card {
+        width: 100%;
+        max-width: 560px;
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        padding: 32px;
+    }
+
+    .brand { text-align: center; margin-bottom: 28px; }
+    .brand-title {
+        font-family: var(--font-mono);
+        font-size: 20px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: var(--ink);
+    }
+    .brand-sub {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 3px;
+        color: var(--gold);
+        text-transform: uppercase;
+        margin-top: 4px;
+    }
+
+    .section { margin-bottom: 22px; }
+    .section-header {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        color: var(--muted);
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 8px;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: default;
+    }
+    .section-header.collapsible { cursor: pointer; }
+    .section-header .chevron { font-size: 9px; transition: transform 0.15s; }
+    .section-header.open .chevron { transform: rotate(90deg); }
+
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    label {
+        display: block;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        color: var(--muted);
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+    label .req { color: var(--gold); margin-left: 2px; }
+
+    .help {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        color: var(--muted);
+        line-height: 1.6;
+        margin-top: 6px;
+    }
+
+    input[type="text"], input[type="password"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1.5px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-size: 12px;
+    }
+    input[type="text"]:focus, input[type="password"]:focus {
+        outline: none;
+        border-color: var(--gold);
+    }
+    input::placeholder { color: var(--muted); opacity: 0.6; }
+
+    .input-with-btn { display: flex; gap: 6px; align-items: center; }
+    .input-with-btn input { flex: 1; }
+    .icon-btn {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        padding: 9px 12px;
+        border: 1.5px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        border-radius: 5px;
+        cursor: pointer;
+    }
+    .icon-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+    .url-prefix-wrap {
+        display: flex;
+        align-items: stretch;
+        border: 1.5px solid var(--border);
+        border-radius: 5px;
+        overflow: hidden;
+        background: var(--bg);
+    }
+    .url-prefix {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted);
+        padding: 10px 0 10px 12px;
+        white-space: nowrap;
+    }
+    .url-suffix {
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--muted);
+        padding: 10px 12px 10px 0;
+        white-space: nowrap;
+    }
+    .url-prefix-wrap input {
+        border: none;
+        background: transparent;
+        padding: 10px 4px;
+        min-width: 0;
+        flex: 1;
+    }
+    .url-prefix-wrap:focus-within { border-color: var(--gold); }
+
+    .tag-input-wrap {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 8px;
+        border: 1.5px solid var(--border);
+        border-radius: 5px;
+        background: var(--bg);
+    }
+    .tag-input-wrap:focus-within { border-color: var(--gold); }
+    .tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        background: rgba(200,168,74,0.14);
+        color: var(--gold);
+        border: 1px solid rgba(200,168,74,0.35);
+        border-radius: 4px;
+        padding: 4px 6px 4px 9px;
+    }
+    .tag-chip button {
+        background: none;
+        border: none;
+        color: var(--gold);
+        cursor: pointer;
+        font-size: 12px;
+        line-height: 1;
+        padding: 0;
+        opacity: 0.75;
+    }
+    .tag-chip button:hover { opacity: 1; }
+    .tag-input-wrap input {
+        flex: 1;
+        min-width: 100px;
+        border: none;
+        background: transparent;
+        padding: 4px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--ink);
+    }
+    .tag-input-wrap input:focus { outline: none; }
+
+    .advanced-body {
+        display: none;
+        margin-top: 14px;
+    }
+    .advanced-body.open { display: block; }
+
+    .error-msg {
+        font-family: var(--font-mono);
+        font-size: 9px;
+        color: var(--err);
+        margin-top: 6px;
+        line-height: 1.6;
+        display: none;
+    }
+    .error-msg.show { display: block; }
+    .field.has-error input,
+    .field.has-error .tag-input-wrap,
+    .field.has-error .url-prefix-wrap { border-color: var(--err); }
+
+    .generate-btn {
+        width: 100%;
+        margin-top: 6px;
+        padding: 14px 16px;
+        border: 1.5px solid var(--gold);
+        background: var(--gold);
+        color: #12100e;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 1.5px;
+        text-transform: uppercase;
+        border-radius: 6px;
+        cursor: pointer;
+    }
+    .generate-btn:hover { filter: brightness(1.08); }
+    .generate-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        filter: none;
+    }
+    .generate-btn.success {
+        background: transparent;
+        color: var(--gold);
+    }
+
+    .footer-note {
+        font-family: var(--font-mono);
+        font-size: 8px;
+        color: var(--muted);
+        text-align: center;
+        margin-top: 18px;
+        line-height: 1.7;
+    }
+
+    @media (max-width: 480px) {
+        .card { padding: 22px; }
+        .brand-title { font-size: 17px; }
+    }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <div class="brand">
+        <div class="brand-title">ICT Trade Journal</div>
+        <div class="brand-sub">Setup</div>
+    </div>
+
+    <form id="configForm" novalidate>
+
+        <div class="section">
+            <div class="section-header">Supabase</div>
+            <div class="field" id="fieldSupaUrl">
+                <label>Supabase Project URL<span class="req">*</span></label>
+                <input type="text" id="inputSupaUrl" placeholder="https://xxxxxxxxxxxx.supabase.co" autocomplete="off">
+                <div class="error-msg" id="errSupaUrl"></div>
+            </div>
+            <div class="field" id="fieldSupaKey">
+                <label>Supabase Anon Key<span class="req">*</span></label>
+                <div class="input-with-btn">
+                    <input type="password" id="inputSupaKey" placeholder="eyJhbGciOi..." autocomplete="off">
+                    <button type="button" class="icon-btn" id="btnToggleSupaKey" onclick="toggleSupaKeyVisibility()">👁</button>
+                </div>
+                <div class="error-msg" id="errSupaKey"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">Cloudflare Pages</div>
+            <div class="field" id="fieldPnlSubdomain">
+                <label>PnL Tracker Subdomain<span class="req">*</span></label>
+                <div class="url-prefix-wrap">
+                    <span class="url-prefix">https://</span>
+                    <input type="text" id="inputPnlSubdomain" placeholder="my-pnl" autocomplete="off">
+                    <span class="url-suffix">.pages.dev</span>
+                </div>
+                <div class="help">Enter your chosen subdomain only — e.g. 'my-pnl' becomes https://my-pnl.pages.dev. Use this exact name when creating your CF Pages project for the PnL Tracker.</div>
+                <div class="error-msg" id="errPnlSubdomain"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">Trading</div>
+            <div class="field" id="fieldPairs">
+                <label>Default Pairs<span class="req">*</span></label>
+                <div class="tag-input-wrap" id="pairsTagWrap" onclick="document.getElementById('inputPairs').focus()">
+                    <input type="text" id="inputPairs" placeholder="Type a pair, press Enter or comma…" autocomplete="off">
+                </div>
+                <div class="error-msg" id="errPairs"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-header collapsible" id="advancedHeader" onclick="toggleAdvanced()">
+                <span>Advanced (Optional)</span>
+                <span class="chevron">▶</span>
+            </div>
+            <div class="advanced-body" id="advancedBody">
+                <div class="field" id="fieldWorkerUrl">
+                    <label>CF Worker URL</label>
+                    <input type="text" id="inputWorkerUrl" placeholder="https://your-worker-name.workers.dev" autocomplete="off">
+                    <div class="help">Optional — leave blank to configure after deployment. Required for Forex Factory calendar, Gemini AI analysis, and Discord feed.</div>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="generate-btn" id="btnGenerate">Generate &amp; Download ZIP</button>
+
+        <div class="footer-note">Your credentials are used only to build your download — nothing is sent to any server.</div>
+    </form>
+</div>
+
+<script>
+    let pairs = ['EURUSD', 'GBPUSD', 'USDCHF', 'XAUUSD'];
+
+    function renderPairs() {
+        const wrap = document.getElementById('pairsTagWrap');
+        const input = document.getElementById('inputPairs');
+        wrap.querySelectorAll('.tag-chip').forEach(el => el.remove());
+        pairs.forEach((p, i) => {
+            const chip = document.createElement('span');
+            chip.className = 'tag-chip';
+            chip.innerHTML = p + ' <button type="button" aria-label="Remove">✕</button>';
+            chip.querySelector('button').onclick = (e) => {
+                e.stopPropagation();
+                pairs.splice(i, 1);
+                renderPairs();
+            };
+            wrap.insertBefore(chip, input);
+        });
+    }
+
+    function addPairFromInput() {
+        const input = document.getElementById('inputPairs');
+        const raw = input.value.trim().toUpperCase().replace(/,+$/, '');
+        input.value = '';
+        if (!raw) return;
+        if (!pairs.includes(raw)) pairs.push(raw);
+        renderPairs();
+    }
+
+    document.getElementById('inputPairs').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addPairFromInput();
+        } else if (e.key === 'Backspace' && !e.target.value && pairs.length) {
+            pairs.pop();
+            renderPairs();
+        }
+    });
+    document.getElementById('inputPairs').addEventListener('blur', addPairFromInput);
+
+    renderPairs();
+
+    function toggleSupaKeyVisibility() {
+        const inp = document.getElementById('inputSupaKey');
+        const btn = document.getElementById('btnToggleSupaKey');
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        btn.textContent = show ? '🙈' : '👁';
+    }
+
+    function toggleAdvanced() {
+        document.getElementById('advancedHeader').classList.toggle('open');
+        document.getElementById('advancedBody').classList.toggle('open');
+    }
+
+    function setFieldError(fieldId, errId, msg) {
+        const field = document.getElementById(fieldId);
+        const err = document.getElementById(errId);
+        if (msg) {
+            field.classList.add('has-error');
+            err.textContent = msg;
+            err.classList.add('show');
+        } else {
+            field.classList.remove('has-error');
+            err.textContent = '';
+            err.classList.remove('show');
+        }
+    }
+
+    function clearAllErrors() {
+        setFieldError('fieldSupaUrl', 'errSupaUrl', '');
+        setFieldError('fieldSupaKey', 'errSupaKey', '');
+        setFieldError('fieldPnlSubdomain', 'errPnlSubdomain', '');
+        setFieldError('fieldPairs', 'errPairs', '');
+    }
+
+    function buildReadme() {
+        return `# ICT Trade Journal — Setup Guide
+
+Your personalised Trade Journal and PnL Tracker are ready
+to deploy. Follow the steps below in order.
+
+---
+
+## Phase 1 — Supabase Setup
+
+### 1.1 Create your Supabase project
+1. Go to https://supabase.com and create a free account
+2. Click "New Project" — choose a name and region
+3. Wait for the project to finish provisioning (~2 min)
+
+### 1.2 Run the database schema
+1. In your Supabase project go to SQL Editor
+2. Copy and run the schema SQL from the link below:
+   [Schema SQL — contact seller for link]
+3. Confirm all tables were created successfully:
+   trades, weeklies, accounts, trade_account_map,
+   broker_profiles, asset_specs, archive_log, sync_meta,
+   signals
+
+### 1.3 Create storage bucket
+1. Go to Storage in your Supabase project
+2. Click "New bucket"
+3. Name it: trade-screenshots
+4. Set to: Private
+5. Click Create
+
+### 1.4 Enable Row Level Security
+RLS is enabled automatically by the schema SQL.
+No additional steps needed.
+
+---
+
+## Phase 2 — Deploy to Cloudflare Pages
+
+You received two files: journal.html and pnl.html
+Each needs its own Cloudflare Pages project.
+
+### 2.1 Create a free Cloudflare account
+Go to https://cloudflare.com and sign up for free.
+
+### 2.2 Deploy the Journal
+1. Go to Workers & Pages → Create → Pages
+2. Choose "Upload assets"
+3. Create project name (anything you like)
+4. Upload journal.html
+5. Click Deploy
+6. Your journal is live at: your-project-name.pages.dev
+
+### 2.3 Deploy the PnL Tracker
+1. Repeat the steps above for pnl.html
+2. IMPORTANT: Use exactly this project name:
+   [your chosen subdomain from setup]
+   so your journal can find it automatically
+
+---
+
+## Phase 3 — CF Worker Setup (Optional)
+
+The CF Worker enables three additional features:
+- Forex Factory economic calendar
+- Gemini AI trade review
+- Discord news feed
+
+Without the worker these sections show
+"Needs additional configuration" — everything else works.
+
+### 3.1 Find the worker template
+Search "ICT Trade Journal Worker" on the
+Cloudflare Workers marketplace, or use the direct link
+provided by the seller.
+
+### 3.2 Deploy with one click
+Click "Deploy to Cloudflare" on the template page.
+This creates your own worker instance — no code editing needed.
+
+### 3.3 Set your secrets (CF Dashboard)
+In your worker settings → Variables → add these secrets:
+
+| Secret name     | Value                        | Required? |
+|-----------------|------------------------------|-----------|
+| DISCORD_TOKEN   | Your Discord user token      | Optional  |
+| GEMINI_API_KEY  | Your Gemini API key          | Optional  |
+
+Both are optional. Add only the ones you want.
+- Discord token: enables the Discord news feed
+- Gemini API key: enables AI trade review
+
+### 3.4 Get your worker URL
+After deployment your worker URL will be:
+https://your-worker-name.workers.dev
+
+### 3.5 Enter worker URL in Journal Settings
+1. Open your journal
+2. Go to Settings → scroll to CF Worker section
+3. Enter your worker URL
+4. Save — advanced features activate immediately
+
+---
+
+## You're done!
+
+Open your journal at your Cloudflare Pages URL.
+Sign up with your email — Supabase handles all auth.
+Start journaling.
+
+For support contact the seller.
+`;
+    }
+
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearAllErrors();
+        addPairFromInput();
+
+        const supaUrl = document.getElementById('inputSupaUrl').value.trim();
+        const supaKey = document.getElementById('inputSupaKey').value.trim();
+        const pnlSubdomain = document.getElementById('inputPnlSubdomain').value.trim();
+        const workerUrl = document.getElementById('inputWorkerUrl').value.trim();
+
+        let hasError = false;
+        if (!supaUrl) { setFieldError('fieldSupaUrl', 'errSupaUrl', 'Supabase Project URL is required.'); hasError = true; }
+        if (!supaKey) { setFieldError('fieldSupaKey', 'errSupaKey', 'Supabase Anon Key is required.'); hasError = true; }
+        if (!pnlSubdomain) { setFieldError('fieldPnlSubdomain', 'errPnlSubdomain', 'PnL Tracker subdomain is required.'); hasError = true; }
+        if (!pairs.length) { setFieldError('fieldPairs', 'errPairs', 'At least one pair is required.'); hasError = true; }
+        if (hasError) return;
+
+        const btn = document.getElementById('btnGenerate');
+        btn.disabled = true;
+        btn.classList.remove('success');
+        btn.textContent = 'Generating…';
+
+        try {
+            const journalTemplate = await fetch('./journal.html').then(r => r.text());
+            const pnlTemplate     = await fetch('./pnl.html').then(r => r.text());
+
+            const pnlUrl    = 'https://' + pnlSubdomain.toLowerCase() + '.pages.dev';
+            const pairsJson = JSON.stringify(pairs);
+
+            let journal = journalTemplate;
+            journal = journal.replace(/%%SUPA_URL%%/g,      supaUrl);
+            journal = journal.replace(/%%SUPA_KEY%%/g,      supaKey);
+            journal = journal.replace(/%%CF_WORKER%%/g,     workerUrl);
+            journal = journal.replace(/%%PNL_URL%%/g,       pnlUrl);
+            journal = journal.replace(/%%DEFAULT_PAIRS%%/g, pairsJson);
+
+            let pnl = pnlTemplate;
+            pnl = pnl.replace(/%%SUPA_URL%%/g,  supaUrl);
+            pnl = pnl.replace(/%%SUPA_KEY%%/g,  supaKey);
+            pnl = pnl.replace(/%%CF_WORKER%%/g, workerUrl);
+
+            const readmeContent = buildReadme();
+
+            const zip = new JSZip();
+            zip.file('journal.html', journal);
+            zip.file('pnl.html',     pnl);
+            zip.file('README.md',    readmeContent);
+
+            const blob = await zip.generateAsync({ type: 'blob' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'trade-journal-setup.zip';
+            a.click();
+            URL.revokeObjectURL(a.href);
+
+            btn.classList.add('success');
+            btn.textContent = '✓ Downloaded';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.classList.remove('success');
+                btn.textContent = 'Generate & Download ZIP';
+            }, 2500);
+        } catch (err) {
+            console.error('Configurator error:', err);
+            btn.disabled = false;
+            btn.textContent = 'Generate & Download ZIP';
+            setFieldError('fieldSupaUrl', 'errSupaUrl', 'Something went wrong building your ZIP: ' + err.message);
+        }
+    });
+</script>
+
+</body>
+</html>
