@@ -1,0 +1,2549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PnL Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Roboto+Mono:wght@400;500;700&family=Manrope:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+    :root {
+        --font-sans:'Roboto',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+        --font-mono:'Roboto Mono',ui-monospace,monospace;
+        --radius-s:8px; --radius-m:14px; --radius-l:20px;
+        --elev-1:0 1px 3px rgba(0,0,0,.10),0 1px 2px rgba(0,0,0,.06);
+        --elev-2:0 4px 10px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);
+        --elev-3:0 10px 24px rgba(0,0,0,.14),0 4px 8px rgba(0,0,0,.08);
+        --pastel-lav:#C9B6F5; --pastel-mint:#A8E6C1; --pastel-sky:#A9DDF3;
+        --pastel-peach:#FFCBA4; --pastel-pink:#FFB8D9; --pastel-lemon:#FFE79A;
+    }
+    body[data-theme="light"]{
+        --bg:#F6F5FB; --surface:#FFFFFF; --surface-alt:#F0EEFA; --ink:#211F2E; --muted:#6E6A80;
+        --border:#E3E0F0; --drawer-bg:#FFFFFF; --drawer-ink:#211F2E; --drawer-muted:#8A85A0;
+        --drawer-active-bg:#EDE7FC; --topbar-bg:#FFFFFF; --accent:#8B6FE0; --accent-ink:#211F2E;
+        --pos:#1E9E5A; --pos-bg:#DCF6E7; --neg:#E0475A; --neg-bg:#FDE1E4;
+    }
+    body[data-theme="dark"]{
+        --bg:#17151F; --surface:#221F2E; --surface-alt:#2A2739; --ink:#F1EFFA; --muted:#A79FC2;
+        --border:#35314A; --drawer-bg:#1C1A26; --drawer-ink:#F1EFFA; --drawer-muted:#918AAD;
+        --drawer-active-bg:#322B4D; --topbar-bg:#1C1A26; --accent:#C9B6F5; --accent-ink:#17151F;
+        --pos:#7FE0A8; --pos-bg:#1E3A2B; --neg:#FF9AA8; --neg-bg:#3D2530;
+    }
+    body[data-theme="black"]{
+        --bg:#000000; --surface:#0D0D0D; --surface-alt:#1A1A1A; --ink:#FFFFFF; --muted:#888888;
+        --border:#2A2A2A; --drawer-bg:#000000; --drawer-ink:#FFFFFF; --drawer-muted:#666666;
+        --drawer-active-bg:#1A1A1A; --topbar-bg:#000000; --accent:#C9B6F5; --accent-ink:#000000;
+        --pos:#00E676; --pos-bg:#00251A; --neg:#FF5252; --neg-bg:#2D0000;
+    }
+    body[data-theme="journal"]{
+        --font-sans:'Manrope','Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+        --font-mono:'Outfit','JetBrains Mono',ui-monospace,monospace;
+        --bg:#f3ede3; --surface:#faf6ee; --surface-alt:#eae2d4; --ink:#0e0c0a; --muted:#6b6050;
+        --border:#c4b9a4; --drawer-bg:#faf6ee; --drawer-ink:#0e0c0a; --drawer-muted:#8a7a66;
+        --drawer-active-bg:#e8dece; --topbar-bg:#f3ede3; --accent:#7a5c00; --accent-ink:#f3ede3;
+        --pos:#0f3d1e; --pos-bg:#cce8d6; --neg:#3d0f0f; --neg-bg:#ead0d0;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+    html,body { height:100%; }
+    body { background:var(--bg); color:var(--ink); font-family:var(--font-sans); transition:background .2s,color .2s; }
+
+    .topbar { position:sticky; top:0; z-index:20; height:60px; background:var(--topbar-bg); border-bottom:1px solid var(--border);
+        display:flex; align-items:center; gap:14px; padding:0 16px; box-shadow:var(--elev-1); }
+    .icon-btn { width:40px; height:40px; border-radius:50%; border:none; background:transparent; display:flex;
+        align-items:center; justify-content:center; cursor:pointer; color:var(--ink); }
+    .icon-btn:hover { background:var(--surface-alt); }
+    .icon-btn svg { width:22px; height:22px; }
+    .topbar .brand { font-weight:900; font-size:17px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .topbar .brand span { color:var(--accent); }
+
+    .scrim { position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:29; opacity:0; pointer-events:none; transition:opacity .2s; }
+    .scrim.open { opacity:1; pointer-events:auto; }
+    .drawer { position:fixed; top:0; left:0; bottom:0; width:280px; z-index:30; background:var(--drawer-bg); color:var(--drawer-ink);
+        transform:translateX(-100%); transition:transform .22s ease; box-shadow:var(--elev-3); display:flex; flex-direction:column; }
+    .drawer.open { transform:translateX(0); }
+    .drawer-head { padding:20px 18px 14px; border-bottom:1px solid var(--border); }
+    .drawer-head .title { font-weight:900; font-size:16px; }
+    .drawer-head .subtitle { font-size:12px; color:var(--drawer-muted); margin-top:2px; }
+    .drawer-list { list-style:none; padding:10px; overflow-y:auto; flex:1; }
+    .drawer-item { display:flex; align-items:center; gap:12px; padding:11px 12px; border-radius:var(--radius-m); cursor:pointer; margin-bottom:4px; }
+    .drawer-item:hover { background:var(--surface-alt); }
+    .drawer-item.active { background:var(--drawer-active-bg); }
+    .avatar { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#221F2E; flex-shrink:0; }
+    .drawer-item .meta { flex:1; min-width:0; }
+    .drawer-item .name { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .drawer-item .sub { font-size:11px; color:var(--drawer-muted); margin-top:1px; }
+    .chip { font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; }
+    .chip.active { background:var(--pos-bg); color:var(--pos); }
+    .chip.breached { background:var(--neg-bg); color:var(--neg); }
+    .chip.passed { background:var(--pastel-lemon); color:#7A5C00; }
+    .drawer-add { margin:8px 10px 16px; padding:12px; border-radius:var(--radius-m); border:1.5px dashed var(--border);
+        color:var(--drawer-muted); text-align:center; font-size:13px; font-weight:600; cursor:pointer; }
+    .drawer-add:hover { background:var(--surface-alt); }
+    .drawer-foot { padding:14px 18px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .drawer-foot .signout { font-size:12px; color:var(--muted); cursor:pointer; }
+    /* Drawer section headers */
+    .drawer-section-head { display:flex; align-items:center; justify-content:space-between;
+        padding:8px 14px 4px; font-size:10px; font-weight:800; letter-spacing:.08em;
+        text-transform:uppercase; color:var(--drawer-muted); user-select:none; cursor:pointer; }
+    .drawer-section-head .chev { font-size:13px; transition:transform .18s; }
+    .drawer-section-head .chev.open { transform:rotate(90deg); }
+    .drawer-section-body { overflow:hidden; }
+    .drawer-section-body.collapsed { display:none; }
+    /* Settings nav item */
+    .drawer-nav-item { display:flex; align-items:center; gap:12px; padding:11px 14px;
+        border-radius:var(--radius-m); cursor:pointer; margin:0 10px 4px; }
+    .drawer-nav-item:hover { background:var(--surface-alt); }
+    .drawer-nav-item.active { background:var(--drawer-active-bg); }
+    .drawer-nav-item .nav-icon { width:32px; height:32px; border-radius:10px;
+        background:var(--surface-alt); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .drawer-nav-item .nav-label { font-size:13.5px; font-weight:600; }
+    /* Theme pill buttons */
+    .theme-pills { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+    .theme-pill { flex:1; min-width:60px; padding:8px 6px; border-radius:10px; border:1.5px solid var(--border);
+        background:var(--surface-alt); color:var(--ink); font-size:12px; font-weight:600;
+        cursor:pointer; text-align:center; transition:all .15s; }
+    .theme-pill.active { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+    /* Settings page */
+    #settingsPage { display:none; max-width:900px; margin:0 auto; padding:22px 18px 80px; }
+    #settingsPage .sett-section { background:var(--surface); border-radius:var(--radius-m);
+        box-shadow:var(--elev-1); padding:20px; margin-bottom:18px; }
+    #settingsPage .sett-section h4 { font-size:11px; font-weight:800; text-transform:uppercase;
+        letter-spacing:.06em; color:var(--muted); margin-bottom:14px; }
+    /* Profile cards */
+    .profile-card { border:1px solid var(--border); border-radius:var(--radius-s);
+        padding:14px; margin-bottom:10px; background:var(--surface-alt); }
+    .profile-card .pc-head { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .profile-card .pc-name { font-size:14px; font-weight:700; }
+    .profile-card .pc-type { font-size:10px; font-weight:700; padding:2px 8px;
+        border-radius:20px; background:var(--border); color:var(--muted); }
+    .profile-card .pc-fields { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .profile-card .pc-field label { font-size:9.5px; text-transform:uppercase; letter-spacing:.04em;
+        color:var(--muted); display:block; margin-bottom:3px; }
+    .profile-card .pc-field input, .profile-card .pc-field select {
+        width:100%; padding:7px 10px; border:1px solid var(--border); border-radius:6px;
+        background:var(--bg); color:var(--ink); font-family:var(--font-sans); font-size:13px; }
+    .profile-card .pc-linked { font-size:11px; color:var(--muted); margin-top:8px; }
+    /* Asset specs table */
+    /* ── Asset Spec Cards — single column, one element per line ── */
+    .spec-card {
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--radius-m);
+        overflow: hidden;
+        margin-bottom: 14px;
+    }
+    .spec-card-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px 12px;
+        border-bottom: 1px solid var(--border);
+        gap: 10px;
+    }
+    .spec-symbol {
+        font-family: var(--font-mono);
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: .02em;
+    }
+    .spec-badges { display: flex; gap: 6px; align-items: center; }
+    .conf-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    .conf-badge.high { background: var(--pos-bg); color: var(--pos); }
+    .conf-badge.low  { background: var(--neg-bg); color: var(--neg); }
+    .conf-badge.user { background: var(--surface-alt); color: var(--muted); }
+    .spec-del-btn {
+        width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--border);
+        background: transparent; color: var(--muted); cursor: pointer; font-size: 14px;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        touch-action: manipulation;
+    }
+    .spec-del-btn:hover { background: var(--neg-bg); color: var(--neg); border-color: var(--neg); }
+    .spec-field {
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+    }
+    .spec-field label {
+        display: block;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .06em;
+        color: var(--muted);
+        margin-bottom: 7px;
+    }
+    .spec-field label span {
+        font-weight: 400;
+        font-size: 9px;
+        letter-spacing: .02em;
+        text-transform: none;
+    }
+    .spec-field input,
+    .spec-field select,
+    .spec-field textarea {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--font-mono);
+        font-size: 16px; /* ≥16px prevents iOS auto-zoom */
+        touch-action: manipulation;
+        box-sizing: border-box;
+    }
+    .spec-field select { font-family: var(--font-sans); }
+    .spec-field textarea {
+        font-family: var(--font-sans);
+        font-size: 14px;
+        min-height: 70px;
+        resize: vertical;
+        line-height: 1.5;
+    }
+    .spec-ai-note {
+        padding: 10px 16px;
+        font-size: 12px;
+        color: var(--muted);
+        font-style: italic;
+        line-height: 1.5;
+        background: var(--surface-alt);
+        border-bottom: 1px solid var(--border);
+    }
+    .spec-save-row {
+        padding: 12px 16px;
+    }
+    .spec-save-row .btn {
+        width: 100%;
+        padding: 13px;
+        font-size: 15px;
+        border-radius: 10px;
+        touch-action: manipulation;
+    }
+    /* Account-profile link row */
+    .acct-profile-row { display:flex; align-items:center; justify-content:space-between;
+        padding:10px 0; border-bottom:1px solid var(--border); }
+    .acct-profile-row:last-child { border-bottom:none; }
+    .acct-profile-row .apr-name { font-size:13px; font-weight:600; }
+    .acct-profile-row .apr-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+    .acct-profile-row select { padding:6px 10px; border:1px solid var(--border); border-radius:6px;
+        background:var(--bg); color:var(--ink); font-family:var(--font-sans); font-size:12px; min-width:140px; }
+
+    main { max-width:900px; margin:0 auto; padding:22px 18px 80px; }
+    .balance-card { background:var(--surface); border-radius:var(--radius-l); box-shadow:var(--elev-2); padding:24px; margin-bottom:18px;
+        display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px; }
+    .balance-main .label { font-size:12px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em; }
+    .balance-main .figure { font-family:var(--font-mono); font-size:38px; font-weight:700; }
+    .balance-main .figure.pos { color:var(--pos); }
+    .balance-main .figure.neg { color:var(--neg); }
+    .balance-meta { display:flex; gap:22px; flex-wrap:wrap; }
+    .balance-meta .item .label { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+    .balance-meta .item .value { font-family:var(--font-mono); font-size:15px; font-weight:600; }
+    .balance-meta .item .value.pos { color:var(--pos); }
+    .balance-meta .item .value.neg { color:var(--neg); }
+
+    .rules-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:18px; }
+    .rule-card { background:var(--surface); border-radius:var(--radius-m); box-shadow:var(--elev-1); padding:16px 18px; }
+    .rule-card .title { font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:8px; }
+    .rule-card .figures { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:9px; }
+    .rule-card .current { font-family:var(--font-mono); font-size:18px; font-weight:700; }
+    .rule-card .target { font-family:var(--font-mono); font-size:12px; color:var(--muted); }
+    .bar-track { height:8px; background:var(--surface-alt); border-radius:20px; overflow:hidden; }
+    .bar-fill { height:100%; border-radius:20px; }
+    .bar-fill.c-mint { background:linear-gradient(90deg,var(--pastel-mint),#6FCB93); }
+    .bar-fill.c-lemon { background:linear-gradient(90deg,var(--pastel-lemon),#E8C24A); }
+    .bar-fill.c-pink { background:linear-gradient(90deg,var(--pastel-pink),#E5789F); }
+    .rule-card .footnote { font-size:10.5px; color:var(--muted); margin-top:7px; font-style:italic; }
+
+    .panel { background:var(--surface); border-radius:var(--radius-m); box-shadow:var(--elev-1); padding:18px 20px; margin-bottom:18px; }
+    .panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+    .panel-head h3 { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); }
+    .chart-placeholder { height:200px; border-radius:var(--radius-s); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:13px; background:var(--surface-alt); }
+
+    .btn { font-family:var(--font-sans); font-weight:600; font-size:13px; padding:9px 16px; border-radius:20px; border:none; cursor:pointer; }
+    .btn.primary { background:var(--accent); color:var(--accent-ink); box-shadow:var(--elev-1); }
+    .btn.primary:hover { filter:brightness(1.06); }
+    .btn.ghost { background:var(--surface-alt); color:var(--ink); }
+    .btn:disabled { opacity:.5; cursor:not-allowed; }
+
+    .table-wrap { overflow-x:auto; border-radius:var(--radius-s); }
+    table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    thead th { text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--border); }
+    thead th:last-child, tbody td:last-child { text-align:right; }
+    tbody td { padding:12px 10px; font-size:13.5px; border-bottom:1px solid var(--border); }
+    tbody tr:hover { background:var(--surface-alt); }
+    td.mono { font-family:var(--font-mono); }
+    .side-pill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+    .side-pill.buy { background:var(--pos-bg); color:var(--pos); }
+    .side-pill.sell { background:var(--neg-bg); color:var(--neg); }
+    .pnl-pos { color:var(--pos); font-weight:700; font-family:var(--font-mono); }
+    .pnl-neg { color:var(--neg); font-weight:700; font-family:var(--font-mono); }
+    .empty-note { text-align:center; padding:24px; color:var(--muted); font-size:13px; }
+
+    .fab { position:fixed; bottom:22px; right:22px; width:56px; height:56px; border-radius:50%; background:var(--accent);
+        color:var(--accent-ink); border:none; box-shadow:var(--elev-3); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:15; }
+    .fab svg { width:24px; height:24px; }
+
+    /* Modal */
+    .modal-scrim { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:39; display:none; align-items:center; justify-content:center; padding:16px; }
+    .modal-scrim.open { display:flex; }
+    .modal { background:var(--surface); border-radius:var(--radius-l); box-shadow:var(--elev-3); width:100%; max-width:440px; max-height:88vh; overflow-y:auto; padding:24px; }
+    .modal h3 { font-size:16px; font-weight:800; margin-bottom:4px; }
+    .modal .sub { font-size:12px; color:var(--muted); margin-bottom:18px; }
+    .field { margin-bottom:14px; }
+    .field label { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); display:block; margin-bottom:6px; }
+    .field input, .field select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--ink); font-family:var(--font-sans); font-size:13.5px; }
+    .kind-toggle { display:flex; gap:8px; margin-bottom:14px; }
+    .kind-toggle button { flex:1; padding:10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); font-weight:600; font-size:13px; cursor:pointer; }
+    .kind-toggle button.sel { background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+    .ai-tag { font-size:9.5px; font-weight:700; color:var(--accent); margin-left:6px; }
+    .review-banner { background:var(--surface-alt); border-radius:8px; padding:10px 12px; font-size:11.5px; color:var(--muted); margin-bottom:14px; }
+    .modal-actions { display:flex; gap:10px; margin-top:18px; }
+    .modal-actions .btn { flex:1; }
+    .login-card { background:var(--surface); border-radius:var(--radius-l); box-shadow:var(--elev-2); padding:32px; width:320px; }
+    .center-screen { min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .msg { font-size:12px; margin-top:8px; }
+    .msg.err { color:var(--neg); }
+    .msg.ok { color:var(--pos); }
+
+    @media (max-width:700px) { .rules-grid { grid-template-columns:1fr; } .balance-card { flex-direction:column; align-items:flex-start; } }
+</style>
+</head>
+<body data-theme="light">
+
+<!-- ══════════ LOGIN ══════════ -->
+<div class="center-screen" id="loginScreen">
+    <div class="login-card">
+        <h3 style="margin-bottom:4px;">PnL Tracker</h3>
+        <div class="sub" style="margin-bottom:18px;color:var(--muted);font-size:12px;">Sign in with your journal account</div>
+        <div class="field"><label>Email</label><input type="email" id="loginEmail"></div>
+        <div class="field"><label>Password</label><input type="password" id="loginPassword"></div>
+        <button class="btn primary" style="width:100%;" onclick="doLogin()">Sign in</button>
+        <div class="msg err" id="loginMsg"></div>
+    </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app" style="display:none;">
+    <div class="scrim" id="scrim" onclick="toggleDrawer(false)"></div>
+
+    <nav class="drawer" id="drawer">
+        <div class="drawer-head">
+            <div class="title">PnL <span style="color:var(--accent)">Tracker</span></div>
+            <div class="subtitle" id="drawerUserEmail" style="margin-top:2px;"></div>
+        </div>
+
+        <!-- ACCOUNTS SECTION -->
+        <div class="drawer-section-head" onclick="toggleDrawerSection('accounts')">
+            <span>Accounts</span>
+            <span class="chev open" id="chevAccounts">›</span>
+        </div>
+        <div class="drawer-section-body" id="sectionAccounts">
+            <ul class="drawer-list" id="drawerList" style="padding:4px 10px;"></ul>
+            <div class="drawer-add" onclick="openAddAccountModal();toggleDrawer(false)">+ Add Account</div>
+        </div>
+
+        <!-- SETTINGS SECTION -->
+        <div class="drawer-section-head" onclick="navigateToSettings()" style="margin-top:4px;">
+            <span>Settings</span>
+            <span style="font-size:13px;">›</span>
+        </div>
+        <div style="height:4px;"></div>
+
+        <div class="drawer-foot">
+            <span class="signout" onclick="doLogout()">Sign out</span>
+        </div>
+    </nav>
+
+    <div class="topbar" id="topbar">
+        <button class="icon-btn" id="topbarMenuBtn" onclick="toggleDrawer(true)" aria-label="Open menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <button class="icon-btn" id="topbarBackBtn" onclick="navigateToDashboard()" aria-label="Back" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="brand" id="topbarBrand">PnL <span>Tracker</span> <span id="activeAccountLabel"></span></div>
+        <button class="btn ghost" onclick="syncFromJournal()" id="syncBtn">Sync</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <main id="dashboardPage">
+        <div class="balance-card">
+            <div class="balance-main">
+                <div class="label">Current Balance</div>
+                <div class="figure" id="balFigure">—</div>
+            </div>
+            <div class="balance-meta">
+                <div class="item"><div class="label">Starting</div><div class="value" id="balStart">—</div></div>
+                <div class="item"><div class="label">Net Change</div><div class="value" id="balChange">—</div></div>
+                <div class="item"><div class="label">Win Rate</div><div class="value" id="balWinRate">—</div></div>
+                <div class="item"><div class="label">Commission Paid</div><div class="value neg" id="balCommTotal">—</div></div>
+                <div class="item"><div class="label">Best Trade</div><div class="value pos" id="balBest" style="font-size:12px;">—</div></div>
+                <div class="item"><div class="label">Worst Trade</div><div class="value neg" id="balWorst" style="font-size:12px;">—</div></div>
+                <div class="item" style="align-self:flex-end;"><button class="btn ghost" style="padding:6px 12px;font-size:11px;" onclick="exportToCsv()">⬇ Export CSV</button></div>
+            </div>
+        </div>
+
+        <div class="rules-grid" id="rulesGrid" style="display:none;">
+            <div class="rule-card">
+                <div class="title">Profit Target</div>
+                <div class="figures"><span class="current" id="rtCurrent">$0</span><span class="target" id="rtTarget">of $0</span></div>
+                <div class="bar-track"><div class="bar-fill c-mint" id="rtBar" style="width:0%;"></div></div>
+                <div class="footnote">As configured — verify with firm</div>
+            </div>
+            <div class="rule-card">
+                <div class="title" id="ddTitle">Max Drawdown</div>
+                <div class="figures"><span class="current" id="ddCurrent">$0</span><span class="target" id="ddTarget">of $0</span></div>
+                <div class="bar-track"><div class="bar-fill c-lemon" id="ddBar" style="width:0%;"></div></div>
+                <div class="footnote">As configured — verify with firm</div>
+            </div>
+            <div class="rule-card">
+                <div class="title">Daily Loss Limit</div>
+                <div class="figures"><span class="current" id="dlCurrent">$0</span><span class="target" id="dlTarget">of $0</span></div>
+                <div class="bar-track"><div class="bar-fill c-pink" id="dlBar" style="width:0%;"></div></div>
+                <div class="footnote">Resets at broker's daily reset time</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head"><h3>Equity Curve</h3><span style="font-size:12px;color:var(--muted);">Balance over time</span></div>
+            <div style="height:200px;position:relative;"><canvas id="equityCanvas"></canvas></div>
+        </div>
+
+        <!-- PnL Calendar -->
+        <div class="panel" id="calPanel">
+            <div class="panel-head" style="flex-wrap:wrap;gap:10px;">
+                <h3>P&amp;L Calendar</h3>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="icon-btn" style="width:28px;height:28px;" onclick="calNav(-1)">‹</button>
+                    <span id="calLabel" style="font-family:var(--font-mono);font-size:13px;font-weight:700;min-width:120px;text-align:center;">—</span>
+                    <button class="icon-btn" style="width:28px;height:28px;" onclick="calNav(1)">›</button>
+                </div>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn ghost" data-cv="week" onclick="calSetView('week')" style="padding:5px 10px;font-size:11px;border-radius:20px;">Week</button>
+                    <button class="btn ghost" data-cv="month" onclick="calSetView('month')" style="padding:5px 10px;font-size:11px;border-radius:20px;">Month</button>
+                    <button class="btn ghost" data-cv="year" onclick="calSetView('year')" style="padding:5px 10px;font-size:11px;border-radius:20px;">Year</button>
+                </div>
+                <span id="calStats" style="font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--pos);">—</span>
+            </div>
+            <div id="calGrid"></div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-head">
+                <h3 id="tradesHeading">Trades</h3>
+                <span style="font-size:12px;color:var(--muted);" id="syncNote">Not synced yet</span>
+            </div>
+            <div id="assetSpecBanner"></div>
+            <div class="table-wrap">
+                <table>
+                    <thead><tr><th>Asset</th><th>Side</th><th class="mono">Lots</th><th class="mono">Pips</th><th class="mono">P&amp;L</th></tr></thead>
+                    <tbody id="tradesBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </main><!-- /dashboardPage -->
+
+    <!-- SETTINGS PAGE -->
+    <div id="settingsPage">
+        <!-- Theme -->
+        <div class="sett-section">
+            <h4>Appearance</h4>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Select app theme</div>
+            <div class="theme-pills">
+                <button class="theme-pill" data-theme="light"   onclick="setTheme('light')">☀ Light</button>
+                <button class="theme-pill" data-theme="dark"    onclick="setTheme('dark')">🌙 Dark</button>
+                <button class="theme-pill" data-theme="black"   onclick="setTheme('black')">⬛ OLED Black</button>
+                <button class="theme-pill" data-theme="journal" onclick="setTheme('journal')">📒 Journal</button>
+            </div>
+        </div>
+
+        <!-- Broker / Firm Profiles -->
+        <div class="sett-section">
+            <h4>Broker &amp; Firm Profiles</h4>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+                Shared commission &amp; rule settings. Link accounts to a profile below so multiple accounts share the same values.
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+                <button class="btn primary" style="font-size:12px;padding:7px 14px;" onclick="openNewProfileModal('prop')">+ Prop Firm Profile</button>
+                <button class="btn ghost"   style="font-size:12px;padding:7px 14px;" onclick="openNewProfileModal('broker')">+ Broker Profile</button>
+            </div>
+            <div id="profilesList"></div>
+        </div>
+
+        <!-- Account → Profile Links -->
+        <div class="sett-section">
+            <h4>Account Profile Links</h4>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+                Link each account to a broker/firm profile. When linked, the profile's values are used for PnL calculation.
+            </div>
+            <div id="acctProfileLinks"></div>
+        </div>
+
+        <!-- Asset Specs -->
+        <div class="sett-section">
+            <h4>Asset Specs <span style="font-size:10px;font-weight:400;color:var(--muted);">(AI-sourced — edit to correct)</span></h4>
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+                Contract sizes and point values used for non-standard instruments (indices, commodities). Edit and save to override AI values.
+            </div>
+            <div id="assetSpecsList"></div>
+        </div>
+    </div><!-- /settingsPage -->
+
+    <button class="fab" id="fabAddAccount" onclick="openAddAccountModal()" aria-label="Add account">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+</div>
+
+<!-- ══════════ ADD ACCOUNT MODAL ══════════ -->
+<div class="modal-scrim" id="addAccountScrim">
+    <div class="modal">
+        <h3>Add Account</h3>
+        <div class="sub">Link to an existing profile for P&amp;L tracking</div>
+
+        <div class="kind-toggle">
+            <button id="paperLiveBtn" class="sel" onclick="setAccountPaper(false)">Live</button>
+            <button id="paperPaperBtn" onclick="setAccountPaper(true)">Paper</button>
+        </div>
+
+        <div class="kind-toggle">
+            <button id="kindPropBtn" class="sel" onclick="setAccountKind('prop')">Prop Firm</button>
+            <button id="kindPersonalBtn" onclick="setAccountKind('personal')">Personal</button>
+        </div>
+
+        <div class="field"><label>Account Name</label>
+            <input id="fName" placeholder="e.g. FTMO Phase 2 — July 2026">
+        </div>
+
+        <div id="propFields">
+            <div class="field"><label>Firm Name <span style="font-size:10px;color:var(--muted);font-weight:400;">(informational)</span></label>
+                <input id="fFirm" placeholder="e.g. FTMO">
+            </div>
+            <div class="field"><label>Account Type <span style="font-size:10px;color:var(--muted);font-weight:400;">(informational)</span></label>
+                <input id="fAcctType" placeholder="e.g. Phase 1, Phase 2, Funded">
+            </div>
+        </div>
+
+        <div id="personalFields" style="display:none;">
+            <div class="field"><label>Broker <span style="font-size:10px;color:var(--muted);font-weight:400;">(informational)</span></label>
+                <input id="fBrokerName" placeholder="e.g. IC Markets, Exness">
+            </div>
+        </div>
+
+        <!-- Profile selector — required -->
+        <div class="field">
+            <label>Profile <span style="font-size:10px;color:var(--neg);font-weight:600;">Required</span></label>
+            <select id="fProfile">
+                <option value="">— Select a profile —</option>
+            </select>
+            <div id="fProfileMsg" style="font-size:11px;margin-top:5px;"></div>
+        </div>
+
+        <!-- Starting balance — always shown -->
+        <div class="field">
+            <label>Starting Balance (USD)</label>
+            <input id="fStartBal" type="number" placeholder="100000">
+        </div>
+
+        <!-- Current balance — prop only, for mid-evaluation entry -->
+        <div class="field" id="fCurrBalField" style="display:none;">
+            <label>Current Balance (USD) <span style="font-size:10px;color:var(--muted);font-weight:400;">optional — leave blank if starting fresh</span></label>
+            <input id="fCurrBal" type="number" placeholder="Same as starting if starting fresh">
+            <div style="font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.5;">
+                Fill this if you started using the app mid-evaluation. The equity curve will show a drop from Starting → Current, then continue with your synced trades.
+            </div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeAddAccountModal()">Cancel</button>
+            <button class="btn primary" id="confirmSaveBtn" onclick="confirmSaveAccount()">Save Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════ TRADE DETAIL POPUP ══════════ -->
+<style>
+.trade-popup-scrim { position:fixed; inset:0; z-index:38; display:none; align-items:flex-end; justify-content:center; padding:0 0 80px; }
+.trade-popup-scrim.open { display:flex; }
+
+/* ── PnL Calendar ── */
+.cal-dow-row { display:grid; gap:3px; margin-bottom:3px; }
+.cal-dow-row span { font-family:var(--font-mono); font-size:9px; font-weight:700; color:var(--muted); text-align:center; text-transform:uppercase; }
+.cal-grid { display:grid; gap:3px; }
+.cal-cell {
+    border-radius:6px; border:1px solid var(--border); min-height:62px; position:relative;
+    overflow:hidden; cursor:default; background:var(--surface-alt);
+}
+.cal-cell.has-trades { border-color:transparent; }
+.cal-cell.cal-empty { background:transparent; border-color:transparent; }
+.cal-cell.cal-pos { background: var(--pos-bg); }
+.cal-cell.cal-neg { background: var(--neg-bg); }
+/* Calendar cell: top-left = date + $amount; bottom-right = pips / R */
+.cal-cell .cal-tl {
+    position:absolute; top:4px; left:5px;
+    font-family:var(--font-mono); font-size:9px; font-weight:800;
+    display:flex; align-items:baseline; gap:4px;
+}
+.cal-cell .cal-tl .cal-date { font-weight:700; color:var(--muted); font-size:8px; }
+.cal-cell .cal-tl .cal-amt  { font-weight:800; }
+.cal-cell .cal-br {
+    position:absolute; bottom:4px; right:5px;
+    font-family:var(--font-mono); font-size:8px; font-weight:700;
+    text-align:right; color:var(--muted);
+}
+.cal-week-col {
+    background:var(--surface-alt); border-radius:6px; border:1px solid var(--border);
+    display:flex; flex-direction:column; justify-content:center; align-items:center;
+    padding:4px; font-family:var(--font-mono); min-height:62px;
+}
+.cal-week-col .cwl { font-size:8px; color:var(--muted); font-weight:700; text-transform:uppercase; }
+.cal-week-col .cwa { font-size:11px; font-weight:800; margin-top:2px; }
+.cal-week-col .cwd { font-size:8px; color:var(--muted); margin-top:1px; }
+.cal-year-cell {
+    background:var(--surface-alt); border-radius:8px; border:1px solid var(--border);
+    padding:10px 8px; min-height:60px; font-family:var(--font-mono);
+    display:flex; flex-direction:column; justify-content:space-between;
+}
+.cal-year-cell.cal-pos { background:var(--pos-bg); border-color:transparent; }
+.cal-year-cell.cal-neg { background:var(--neg-bg); border-color:transparent; }
+.cal-year-cell .cyl { font-size:10px; font-weight:700; }
+.cal-year-cell .cya { font-size:14px; font-weight:800; margin-top:4px; }
+.cal-year-cell .cyp { font-size:9px; color:var(--muted); }
+.trade-popup {
+    background:var(--surface); border-radius:var(--radius-l) var(--radius-l) 0 0;
+    box-shadow:var(--elev-3); width:100%; max-width:500px; padding:20px;
+    animation: slideUp .2s ease;
+}
+@keyframes slideUp { from { transform:translateY(60px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+.tp-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+.tp-pair { font-family:var(--font-mono); font-size:18px; font-weight:800; }
+.tp-side { font-size:11px; font-weight:700; padding:4px 12px; border-radius:20px; }
+.tp-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px; }
+.tp-cell { background:var(--surface-alt); border-radius:8px; padding:10px 12px; }
+.tp-cell .lbl { font-size:9.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin-bottom:4px; }
+.tp-cell .val { font-family:var(--font-mono); font-size:14px; font-weight:700; }
+.tp-pnl-row { display:flex; gap:10px; }
+.tp-pnl-row .tp-cell { flex:1; }
+.tp-close { width:32px; height:32px; border-radius:50%; border:none; background:var(--surface-alt); color:var(--muted); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+</style>
+
+<div class="trade-popup-scrim" id="tradePopupScrim" onclick="closeTradePopup()">
+    <div class="trade-popup" onclick="event.stopPropagation()">
+        <div class="tp-head">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <div class="tp-pair" id="tpPair">—</div>
+                <span class="tp-side" id="tpSide">—</span>
+            </div>
+            <button class="tp-close" onclick="closeTradePopup()">✕</button>
+        </div>
+        <div class="tp-grid">
+            <div class="tp-cell"><div class="lbl">Entry</div><div class="val" id="tpEntry">—</div></div>
+            <div class="tp-cell"><div class="lbl">Close</div><div class="val" id="tpClose">—</div></div>
+            <div class="tp-cell"><div class="lbl">Lots</div><div class="val" id="tpLots">—</div></div>
+            <div class="tp-cell"><div class="lbl">Stop Loss</div><div class="val" id="tpSL">—</div></div>
+            <div class="tp-cell"><div class="lbl">Take Profit</div><div class="val" id="tpTP">—</div></div>
+            <div class="tp-cell"><div class="lbl">Pips</div><div class="val" id="tpPips">—</div></div>
+        </div>
+        <div class="tp-pnl-row">
+            <div class="tp-cell"><div class="lbl">Gross P&amp;L</div><div class="val" id="tpGross">—</div></div>
+            <div class="tp-cell"><div class="lbl">Commission</div><div class="val" id="tpComm">—</div></div>
+            <div class="tp-cell"><div class="lbl">Net P&amp;L</div><div class="val" id="tpNet">—</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════ BROKER/FIRM PROFILE MODAL ══════════ -->
+<div class="modal-scrim" id="profileModalScrim">
+    <div class="modal" style="max-width:520px;">
+        <h3 id="profileModalTitle">New Profile</h3>
+        <div class="sub" id="profileModalSub">Shared settings used across accounts</div>
+
+        <!-- Step 1: Name + Fetch -->
+        <div id="pmStep1">
+            <div class="field"><label>Profile Name</label>
+                <input id="pmName" placeholder="e.g. FTMO Phase 2, IC Markets Raw">
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-end;">
+                <div class="field" style="flex:1;margin-bottom:0;"><label>Firm / Broker Name (for AI lookup)</label>
+                    <input id="pmFirmName" placeholder="e.g. FTMO, IC Markets, Exness">
+                </div>
+                <button class="btn primary" style="padding:9px 16px;font-size:12px;white-space:nowrap;" onclick="fetchProfileRules()">Fetch with AI</button>
+            </div>
+            <div id="pmFetchMsg" style="font-size:11.5px;margin-top:8px;"></div>
+        </div>
+
+        <!-- Step 2: Review screen — shown after fetch -->
+        <div id="pmStep2" style="display:none;margin-top:14px;">
+            <div style="background:var(--surface-alt);border-radius:8px;padding:9px 12px;font-size:11.5px;color:var(--muted);margin-bottom:14px;">
+                AI-suggested values below — please verify against your firm/broker's dashboard before saving. Each field is editable.
+            </div>
+
+            <!-- Prop rules — only shown for prop profiles -->
+            <div id="pmPropRules" style="display:none;">
+                <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:8px;">Prop Firm Rules</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+                    <div class="field"><label>Profit Target % <span class="ai-tag" id="tagTarget">AI</span></label><input id="pmTarget" type="number" step="0.1"></div>
+                    <div class="field"><label>Drawdown % <span class="ai-tag" id="tagDD">AI</span></label><input id="pmDD" type="number" step="0.1"></div>
+                    <div class="field"><label>Daily Loss Limit % <span class="ai-tag" id="tagDaily">AI</span></label><input id="pmDaily" type="number" step="0.1"></div>
+                    <div class="field"><label>Daily Reset UTC Hour <span class="ai-tag" id="tagReset">AI</span></label><input id="pmReset" type="number" min="0" max="23" step="1" placeholder="22 = 5pm NY EST"></div>
+                    <div class="field" style="grid-column:span 2;"><label>Drawdown Type <span class="ai-tag" id="tagDDType">AI</span></label>
+                        <select id="pmDDType"><option value="static">Static</option><option value="trailing">Trailing</option><option value="trailing_to_be">Trailing to Breakeven</option></select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Asset class sections — 4 collapsible blocks -->
+            <!-- FOREX -->
+            <details open>
+                <summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);cursor:pointer;margin-bottom:8px;list-style:none;">▸ Forex <span id="pmFxConf" style="font-weight:400;margin-left:6px;"></span></summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding-left:8px;">
+                    <div class="field"><label>Commission / Lot (USD)</label><input id="pmCommFx" type="number" step="0.01" placeholder="7.00"></div>
+                    <div class="field"><label>Lot Size (units)</label><input id="pmLotFx" type="number" placeholder="100000"></div>
+                    <div class="field"><label>Pip Size</label><input id="pmPipFx" type="number" step="0.00001" placeholder="0.0001"></div>
+                    <div class="field"><label>Point Value USD / Lot</label><input id="pmPvFx" type="number" step="0.01" placeholder="10.00"></div>
+                    <div class="field" style="grid-column:span 2;"><label>Spread Type</label>
+                        <select id="pmSpreadFx"><option value="">— Select —</option><option value="raw_plus_commission">Raw + Commission</option><option value="spread_only">Spread Only</option></select>
+                    </div>
+                </div>
+            </details>
+
+            <!-- METALS -->
+            <details open>
+                <summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);cursor:pointer;margin-bottom:8px;list-style:none;">▸ Metals <span id="pmMetalConf" style="font-weight:400;margin-left:6px;"></span></summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding-left:8px;">
+                    <div class="field"><label>Commission / Lot (USD)</label><input id="pmCommMetal" type="number" step="0.01" placeholder="0.00"></div>
+                    <div class="field"><label>XAU Lot Size (oz)</label><input id="pmLotXau" type="number" placeholder="100"></div>
+                    <div class="field"><label>XAG Lot Size (oz)</label><input id="pmLotXag" type="number" placeholder="5000"></div>
+                    <div class="field"><label>XAU Pip Size</label><input id="pmPipXau" type="number" step="0.001" placeholder="0.01"></div>
+                    <div class="field"><label>XAU Point Value USD / Lot</label><input id="pmPvXau" type="number" step="0.01" placeholder="1.00"></div>
+                    <div class="field"><label>XAG Point Value USD / Lot</label><input id="pmPvXag" type="number" step="0.01" placeholder="50.00"></div>
+                </div>
+            </details>
+
+            <!-- INDICES -->
+            <details open>
+                <summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);cursor:pointer;margin-bottom:8px;list-style:none;">▸ Indices <span id="pmIdxConf" style="font-weight:400;margin-left:6px;"></span></summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding-left:8px;">
+                    <div class="field"><label>Commission / Lot (USD)</label><input id="pmCommIdx" type="number" step="0.01" placeholder="15.00"></div>
+                    <div class="field"><label>Lot Size (contracts)</label><input id="pmLotIdx" type="number" placeholder="1"></div>
+                    <div class="field"><label>Point Value USD / Lot</label><input id="pmPvIdx" type="number" step="0.01" placeholder="1.00"></div>
+                </div>
+            </details>
+
+            <!-- COMMODITIES -->
+            <details open>
+                <summary style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);cursor:pointer;margin-bottom:8px;list-style:none;">▸ Commodities <span id="pmComConf" style="font-weight:400;margin-left:6px;"></span></summary>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;padding-left:8px;">
+                    <div class="field"><label>Commission / Lot (USD)</label><input id="pmCommCom" type="number" step="0.01" placeholder="10.00"></div>
+                    <div class="field"><label>Lot Size (contracts)</label><input id="pmLotCom" type="number" placeholder="1"></div>
+                    <div class="field"><label>Point Value USD / Lot</label><input id="pmPvCom" type="number" step="0.01" placeholder="10.00"></div>
+                </div>
+            </details>
+
+            <div id="pmAiNotes" style="font-size:11px;color:var(--muted);margin-top:4px;margin-bottom:8px;font-style:italic;"></div>
+        </div>
+
+        <div class="modal-actions">
+            <button class="btn ghost" onclick="closeProfileModal()">Cancel</button>
+            <button class="btn primary" id="pmSaveBtn" style="display:none;" onclick="saveProfile()">Confirm &amp; Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════ ACCOUNT OPTIONS MODAL ══════════ -->
+<div class="modal-scrim" id="accountOptionsScrim">
+    <div class="modal" style="max-width:340px;">
+        <h3 id="acctOptName">Account Options</h3>
+        <div class="sub" id="acctOptSub"></div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:4px;">
+            <button class="btn ghost" style="text-align:left;border-radius:10px;" onclick="acctOptSetStatus('active')">✅ Mark as Active</button>
+            <button class="btn ghost" style="text-align:left;border-radius:10px;" onclick="acctOptSetStatus('passed')">🏆 Mark as Passed</button>
+            <button class="btn ghost" style="text-align:left;border-radius:10px;" onclick="acctOptSetStatus('breached')">🚫 Mark as Breached</button>
+            <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+            <button class="btn ghost" style="text-align:left;border-radius:10px;color:var(--neg);" onclick="acctOptDelete()">🗑 Delete Account</button>
+        </div>
+        <div class="modal-actions" style="margin-top:10px;">
+            <button class="btn ghost" onclick="closeAccountOptions()">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// BUYER CONFIGURATION
+// All hardcoded deployment values live here.
+// The configurator page replaces %%TOKENS%% for buyer downloads.
+// ═══════════════════════════════════════════════════════════
+const CONFIG = {
+    SUPA_URL:   "%%SUPA_URL%%",
+    SUPA_KEY:   "%%SUPA_KEY%%",
+    CF_WORKER:  "%%CF_WORKER%%",
+};
+// ═══════════════════════════════════════════════════════════
+
+// IC Markets preset — published raw-spread commission as of last check.
+// FLAG: verify against ic markets' current published rates before trusting — rates change.
+const IC_MARKETS_PRESET = { commission_per_lot_usd: 7.00, spread_type: "raw_plus_commission", notes: "Preset: $3.50/side round-turn on Raw Spread accounts. Verify on icmarkets.com — last checked by app author, not live." };
+
+// Metal contract sizes (oz per standard lot) — standard industry convention,
+// FLAG: still worth a one-time check against your specific broker.
+const METAL_OZ_PER_LOT = { XAU: 100, XAG: 5000, XPT: 50, XPD: 100 };
+const STANDARD_FX_LOT = 100000; // units of base currency per standard lot
+
+// Cache of AI-looked-up / manually-confirmed specs for symbols that don't fit
+// the standard FX/metal pattern (indices, commodities, cross pairs). Loaded
+// from the asset_specs table, keyed by symbol.
+let assetSpecsCache = {};
+let assetSpecsLookupInFlight = new Set(); // symbols currently being fetched, avoid duplicate calls
+let fxRates = {}; // quote_currency -> USD rate, refreshed on every sync via Frankfurter.app
+
+const sb = supabase.createClient(CONFIG.SUPA_URL, CONFIG.SUPA_KEY);
+
+let currentUser = null;
+let accounts = [];
+let activeAccountId = null;
+let journalTradesCache = [];   // raw trades fetched from journal on last sync
+let activeTradesCache = {};    // trade_id -> trade object, always current for the active account
+let addAccountKind = 'prop';
+let addAccountPaper = false;
+let lastFetchedRules = null;
+let brokerProfiles = [];   // loaded from broker_profiles table
+let _editingProfileId = null;  // profile being edited in modal
+let _editingProfileType = 'prop'; // 'prop' | 'broker'
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+async function doLogin() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    const msgEl = document.getElementById('loginMsg');
+    msgEl.textContent = '';
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { msgEl.textContent = error.message; return; }
+    currentUser = data.user;
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    await loadAccounts();
+}
+
+async function doLogout() {
+    await sb.auth.signOut();
+    currentUser = null;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('loginScreen').style.display = 'flex';
+}
+
+async function checkExistingSession() {
+    const { data } = await sb.auth.getSession();
+    if (data.session) {
+        currentUser = data.session.user;
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        await loadAccounts();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ACCOUNTS: load, render drawer, switch
+// ═══════════════════════════════════════════════════════════
+async function loadAccounts() {
+    const { data, error } = await sb.from('accounts').select('*').order('created_at', { ascending: true });
+    if (error) { console.error(error); return; }
+    accounts = data || [];
+    if (!activeAccountId && accounts.length) activeAccountId = accounts[0].id;
+    await loadAssetSpecsCache();
+    await loadBrokerProfiles();
+    // Set drawer user email
+    const emailEl = document.getElementById('drawerUserEmail');
+    if (emailEl && currentUser) emailEl.textContent = currentUser.email || '';
+    renderDrawer();
+    renderActiveAccount();
+}
+
+async function loadBrokerProfiles() {
+    try {
+        const { data } = await sb.from('broker_profiles').select('*')
+            .eq('user_id', currentUser.id).order('created_at', { ascending: true });
+        brokerProfiles = data || [];
+    } catch(e) {
+        console.warn('broker_profiles table may not exist yet:', e.message);
+        brokerProfiles = [];
+    }
+}
+
+async function loadAssetSpecsCache() {
+    try {
+        const { data } = await sb.from('asset_specs')
+            .select('id,symbol,asset_class,contract_size,pip_size,point_value_usd,quote_currency,commission_per_lot,source,source_confidence,notes,user_notes,fetched_at')
+            .eq('user_id', currentUser.id);
+        (data || []).forEach(row => { assetSpecsCache[row.symbol] = row; });
+    } catch (e) {
+        console.warn('Could not preload asset_specs (table may not exist yet):', e.message);
+    }
+}
+
+function renderDrawer() {
+    const list = document.getElementById('drawerList');
+    if (!accounts.length) {
+        list.innerHTML = '<li style="padding:10px 12px;font-size:12.5px;color:var(--drawer-muted);">No accounts yet.</li>';
+        return;
+    }
+    const colors = ['pastel-lav','pastel-sky','pastel-peach','pastel-mint','pastel-pink','pastel-lemon'];
+    list.innerHTML = accounts.map((a, i) => {
+        const initials = a.name.slice(0,2).toUpperCase();
+        const color = `var(--${colors[i % colors.length]})`;
+        const chip = a.status === 'breached' ? '<span class="chip breached">Breached</span>'
+                   : a.status === 'passed' ? '<span class="chip passed">Passed</span>'
+                   : '<span class="chip active">Active</span>';
+        const paperChip = a.is_paper ? '<span class="chip" style="background:var(--pastel-lav);color:#4A3B7A;margin-right:3px;">Paper</span>' : '';
+        const sub = a.account_kind === 'prop' ? `Prop${a.account_type ? ' — '+a.account_type : ''}` : (a.broker_name || 'Personal');
+        return `<li class="drawer-item ${a.id===activeAccountId?'active':''}" onclick="switchAccount('${a.id}')">
+            <div class="avatar" style="background:${color};">${initials}</div>
+            <div class="meta"><div class="name">${a.name}</div><div class="sub">${sub}</div></div>
+            ${paperChip}${chip}
+            <button class="icon-btn" style="width:28px;height:28px;flex-shrink:0;color:var(--drawer-muted);" onclick="event.stopPropagation();openAccountOptions('${a.id}')" title="Options">
+                <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+            </button>
+        </li>`;
+    }).join('');
+}
+
+function toggleDrawerSection(section) {
+    const body = document.getElementById('section' + section.charAt(0).toUpperCase() + section.slice(1));
+    const chev = document.getElementById('chev' + section.charAt(0).toUpperCase() + section.slice(1));
+    if (!body || !chev) return;
+    body.classList.toggle('collapsed');
+    chev.classList.toggle('open');
+}
+
+function switchAccount(id) {
+    activeAccountId = id;
+    renderDrawer();
+    renderActiveAccount();
+    toggleDrawer(false);
+}
+
+let _acctOptId = null;
+
+function openAccountOptions(id) {
+    _acctOptId = id;
+    const a = accounts.find(x => x.id === id);
+    if (!a) return;
+    document.getElementById('acctOptName').textContent = a.name;
+    document.getElementById('acctOptSub').textContent =
+        `${a.is_paper ? 'Paper ' : ''}${a.account_kind === 'prop' ? 'Prop Firm' : 'Personal'} · ${a.status}`;
+    document.getElementById('accountOptionsScrim').classList.add('open');
+}
+
+function closeAccountOptions() {
+    _acctOptId = null;
+    document.getElementById('accountOptionsScrim').classList.remove('open');
+}
+
+// ── TRADE DETAIL POPUP ──
+function openTradePopup(tradeId) {
+    const acct = getActiveAccount();
+    const t = activeTradesCache[tradeId] || journalTradesCache.find(x => x.id === tradeId);
+    if (!t) { console.warn('Trade not found in cache:', tradeId); return; }
+
+    const side = normalizeDirection(t.trade_type);
+    const result = calcPnl(t, acct);
+    const commPerLot = resolveCommission(t, acct);
+    const comm = commPerLot * Number(t.lot_size || 0);
+    const gross = result.noLotSize || result.pending ? null : result.pnl + comm;
+    const pips = calcPips(t, acct);
+
+    document.getElementById('tpPair').textContent = t.pair || '—';
+    const sideEl = document.getElementById('tpSide');
+    sideEl.textContent = side === 'sell' ? 'Sell' : 'Buy';
+    sideEl.className = 'tp-side side-pill ' + (side === 'sell' ? 'sell' : 'buy');
+    document.getElementById('tpEntry').textContent = t.entry_price ?? '—';
+    document.getElementById('tpClose').textContent = t.close_price ?? '—';
+    document.getElementById('tpLots').textContent = t.lot_size ?? '—';
+    document.getElementById('tpSL').textContent = t.sl_price ?? '—';
+    document.getElementById('tpTP').textContent = t.tp_price ?? '—';
+    document.getElementById('tpPips').textContent = pips !== null ? (pips >= 0 ? '+' : '') + pips : '—';
+    document.getElementById('tpPips').style.color = pips > 0 ? 'var(--pos)' : pips < 0 ? 'var(--neg)' : '';
+
+    const grossText = gross !== null ? (gross >= 0 ? '+' : '') + '$' + gross.toFixed(2) : '—';
+    const netText = result.noLotSize || result.pending ? '—' : (result.pnl >= 0 ? '+' : '') + '$' + result.pnl.toFixed(2);
+    document.getElementById('tpGross').textContent = grossText;
+    document.getElementById('tpGross').style.color = gross >= 0 ? 'var(--pos)' : 'var(--neg)';
+    document.getElementById('tpComm').textContent = comm > 0 ? '-$' + comm.toFixed(2) : '$0';
+    document.getElementById('tpComm').style.color = comm > 0 ? 'var(--neg)' : '';
+    document.getElementById('tpNet').textContent = netText;
+    document.getElementById('tpNet').style.color = result.pnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+
+    document.getElementById('tradePopupScrim').classList.add('open');
+}
+function closeTradePopup() { document.getElementById('tradePopupScrim').classList.remove('open'); }
+
+
+
+async function acctOptSetStatus(status) {
+    if (!_acctOptId) return;
+    const { error } = await sb.from('accounts').update({ status }).eq('id', _acctOptId);
+    if (error) { alert('Update failed: ' + error.message); return; }
+    const a = accounts.find(x => x.id === _acctOptId);
+    if (a) a.status = status;
+    closeAccountOptions();
+    renderDrawer();
+    renderActiveAccount();
+}
+
+async function acctOptDelete() {
+    if (!_acctOptId) return;
+    const a = accounts.find(x => x.id === _acctOptId);
+    if (!a) return;
+    const confirmed = confirm(
+        `Delete "${a.name}"?\n\nThis removes the account and all its trade assignments from the PnL Tracker. ` +
+        `Your actual trades in the Journal are NOT affected.`
+    );
+    if (!confirmed) return;
+    // Delete trade assignments first (FK dependency)
+    await sb.from('trade_account_map').delete().eq('account_id', _acctOptId);
+    const { error } = await sb.from('accounts').delete().eq('id', _acctOptId);
+    if (error) { alert('Delete failed: ' + error.message); return; }
+    accounts = accounts.filter(x => x.id !== _acctOptId);
+    if (activeAccountId === _acctOptId) {
+        activeAccountId = accounts.length ? accounts[0].id : null;
+    }
+    closeAccountOptions();
+    renderDrawer();
+    renderActiveAccount();
+}
+
+function getActiveAccount() { return accounts.find(a => a.id === activeAccountId); }
+
+async function renderActiveAccount() {
+    const acct = getActiveAccount();
+    const label = document.getElementById('activeAccountLabel');
+    if (!acct) { label.textContent = ''; document.getElementById('rulesGrid').style.display='none'; return; }
+    label.textContent = '— ' + acct.name;
+
+    // Trades assigned to this account
+    const { data: maps } = await sb.from('trade_account_map').select('trade_id').eq('account_id', acct.id);
+    const tradeIds = (maps || []).map(m => m.trade_id);
+
+    let trades = [];
+    if (tradeIds.length) {
+        trades = journalTradesCache.filter(t => tradeIds.includes(t.id));
+        if (!trades.length) {
+            const { data: fetched } = await sb.from('trades').select(
+                'id,pair,trade_type,entry_price,close_price,sl_price,tp_price,lot_size,status,open_time,close_time,is_intraday'
+            ).in('id', tradeIds).eq('is_intraday', true);
+            trades = fetched || [];
+        }
+    }
+
+    // Always keep an up-to-date lookup for the popup — works with or without a prior Sync
+    activeTradesCache = {};
+    trades.forEach(t => { activeTradesCache[t.id] = t; });
+
+    // Sort by close_time for equity curve and daily grouping
+    trades.sort((a, b) => new Date(a.close_time || 0) - new Date(b.close_time || 0));
+
+    // ── Compute per-trade P&L ──
+    let netPnl = 0, anyAiSourced = false, commissionTotal = 0;
+    let bestPnl = null, worstPnl = null;
+    let winCount = 0, totalCount = 0;
+    const commPerLot = Number(acct.commission_per_lot) || 0;
+    const tradeResults = trades.map(t => {
+        const result = calcPnl(t, acct);
+        if (!result.noLotSize && !result.pending) {
+            netPnl += result.pnl;
+            totalCount++;
+            commissionTotal += commPerLot * Number(t.lot_size || 0);
+            if (result.pnl > 0) winCount++;
+            if (bestPnl === null || result.pnl > bestPnl.pnl) bestPnl = { pnl: result.pnl, pair: t.pair, date: t.close_time };
+            if (worstPnl === null || result.pnl < worstPnl.pnl) worstPnl = { pnl: result.pnl, pair: t.pair, date: t.close_time };
+        }
+        if (result.aiSourced) anyAiSourced = true;
+        return { t, result };
+    });
+
+    // ── Daily Loss calc using broker reset time ──
+    const _profReset = acct.broker_profile_id ? brokerProfiles.find(p => p.id === acct.broker_profile_id) : null;
+    const resetHour = Number((_profReset && _profReset.profile_type==='prop' ? _profReset.daily_reset_utc_hour : acct.daily_reset_utc_hour) ?? 22);
+    const nowUtc = new Date();
+    // "Today's trading day" starts at the last reset boundary before now
+    const todayResetMs = (() => {
+        const d = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth(), nowUtc.getUTCDate(), resetHour, 0, 0));
+        return d > nowUtc ? d - 86400000 : d; // if reset is in the future today, use yesterday's reset
+    })();
+    const todayLoss = tradeResults.reduce((sum, { t, result }) => {
+        if (!t.close_time || result.noLotSize || result.pending) return sum;
+        const closeMs = new Date(t.close_time).getTime();
+        if (closeMs >= todayResetMs && result.pnl < 0) return sum + Math.abs(result.pnl);
+        return sum;
+    }, 0);
+
+    // ── Trade table rows ──
+    const rows = [...tradeResults].reverse().map(({ t, result }) => {
+        const side = normalizeDirection(t.trade_type);
+        const pips = calcPips(t, acct);
+        const pipsText = pips !== null ? (pips >= 0 ? '+' : '') + pips : '—';
+        const pipsColor = pips > 0 ? 'var(--pos)' : pips < 0 ? 'var(--neg)' : '';
+        let pnlCell, badge = '';
+        if (result.noLotSize) {
+            pnlCell = '<span style="color:var(--muted);font-size:11px;">⚠ lot size not logged</span>';
+        } else {
+            const pnl = result.pnl;
+            if (result.aiSourced) anyAiSourced = true;
+            badge = result.aiSourced
+                ? `<span title="${result.pending ? 'Looking up…' : 'AI contract spec — validate manually'}" style="margin-left:4px;cursor:help;">${result.pending ? '⏳' : '☁️'}</span>`
+                : result.pending
+                    ? `<span title="${result.pendingMsg || 'Run Sync'}" style="margin-left:4px;cursor:help;">⏳</span>`
+                    : '';
+            pnlCell = `<span class="${pnl>=0?'pnl-pos':'pnl-neg'}">${pnl>=0?'+':''}$${pnl.toFixed(2)}</span>${badge}`;
+        }
+        return `<tr style="cursor:pointer;" onclick="openTradePopup('${t.id}')">
+            <td>${t.pair || '—'}</td>
+            <td><span class="side-pill ${side==='sell'?'sell':'buy'}">${side==='sell'?'Sell':'Buy'}</span></td>
+            <td class="mono">${t.lot_size ?? '—'}</td>
+            <td class="mono" style="color:${pipsColor}">${pipsText}</td>
+            <td class="mono">${pnlCell}</td>
+        </tr>`;
+    }).join('');
+
+    const banner = anyAiSourced
+        ? `<div style="background:var(--pastel-lemon);color:#5c4a00;border-radius:8px;padding:8px 12px;font-size:12px;margin-bottom:10px;">☁️ Some values use AI-looked-up contract specs — validate manually against your broker.</div>`
+        : '';
+
+    document.getElementById('tradesBody').innerHTML = rows || '<tr><td colspan="5" class="empty-note">No intraday trades assigned yet. Run Sync, then assign trades via the Journal close modal.</td></tr>';
+    document.getElementById('tradesHeading').textContent = `Intraday Trades — ${acct.name}`;
+    const bannerEl = document.getElementById('assetSpecBanner');
+    if (bannerEl) bannerEl.innerHTML = banner;
+
+    // ── Balance card ──
+    // If current_balance_override is set (mid-evaluation entry), P&L from trades
+    // is calculated on top of that override. starting_balance is always the drawdown reference.
+    const tradeBase = acct.current_balance_override != null
+        ? Number(acct.current_balance_override)
+        : Number(acct.starting_balance);
+    const balance = tradeBase + netPnl;
+    const netChange = balance - Number(acct.starting_balance); // always vs starting_balance
+    document.getElementById('balFigure').textContent = '$' + balance.toFixed(2);
+    document.getElementById('balFigure').className = 'figure ' + (netChange >= 0 ? 'pos' : 'neg');
+    document.getElementById('balStart').textContent = '$' + Number(acct.starting_balance).toFixed(2);
+    const pctChange = (netChange / Number(acct.starting_balance) * 100).toFixed(2);
+    document.getElementById('balChange').textContent = (netChange>=0?'+':'') + '$' + netChange.toFixed(2) + ' (' + (netChange>=0?'+':'') + pctChange + '%)';
+    document.getElementById('balChange').className = 'value ' + (netChange>=0?'pos':'neg');
+
+    // ── Win rate + best/worst in balance meta ──
+    const winRate = totalCount > 0 ? Math.round(winCount / totalCount * 100) : null;
+    const elWR = document.getElementById('balWinRate');
+    if (elWR) { elWR.textContent = winRate !== null ? winRate + '% win rate' : '—'; }
+    const elComm = document.getElementById('balCommTotal');
+    if (elComm) elComm.textContent = commissionTotal > 0 ? '-$' + commissionTotal.toFixed(2) : '$0';
+    const elBest = document.getElementById('balBest');
+    if (elBest) elBest.textContent = bestPnl ? `+$${bestPnl.pnl.toFixed(2)} (${bestPnl.pair})` : '—';
+    const elWorst = document.getElementById('balWorst');
+    if (elWorst) elWorst.textContent = worstPnl && worstPnl.pnl < 0 ? `-$${Math.abs(worstPnl.pnl).toFixed(2)} (${worstPnl.pair})` : '—';
+
+    // ── Prop rules block ──
+    if (acct.account_kind === 'prop') {
+        document.getElementById('rulesGrid').style.display = 'grid';
+        // Resolve rules from profile if linked (prop profile takes precedence)
+        const _prof = acct.broker_profile_id ? brokerProfiles.find(p => p.id === acct.broker_profile_id) : null;
+        const _rules = (_prof && _prof.profile_type === 'prop') ? _prof : acct;
+        const targetAmt = Number(acct.starting_balance) * (Number(_rules.profit_target_pct||0)/100);
+        const ddAmt = Number(acct.starting_balance) * (Number(_rules.drawdown_pct||0)/100);
+        const dailyLimitAmt = Number(acct.starting_balance) * (Number(_rules.daily_loss_limit_pct||0)/100);
+
+        document.getElementById('rtCurrent').textContent = '$' + Math.max(netPnl,0).toFixed(0);
+        document.getElementById('rtTarget').textContent = 'of $' + targetAmt.toFixed(0);
+        document.getElementById('rtBar').style.width = Math.min(100, targetAmt ? (Math.max(netPnl,0)/targetAmt*100) : 0) + '%';
+
+        const ddUsed = Math.max(0, -netPnl);
+        document.getElementById('ddTitle').textContent = 'Max Drawdown (' + (_rules.drawdown_type||'—') + ')';
+        document.getElementById('ddCurrent').textContent = '$' + ddUsed.toFixed(0);
+        document.getElementById('ddTarget').textContent = 'of $' + ddAmt.toFixed(0);
+        document.getElementById('ddBar').style.width = Math.min(100, ddAmt ? (ddUsed/ddAmt*100) : 0) + '%';
+
+        // Daily loss — wired to broker reset time
+        document.getElementById('dlCurrent').textContent = '$' + todayLoss.toFixed(0);
+        document.getElementById('dlTarget').textContent = 'of $' + dailyLimitAmt.toFixed(0);
+        const dlPct = dailyLimitAmt > 0 ? Math.min(100, todayLoss/dailyLimitAmt*100) : 0;
+        document.getElementById('dlBar').style.width = dlPct + '%';
+        document.getElementById('dlBar').className = 'bar-fill ' + (dlPct >= 80 ? 'c-pink' : 'c-mint');
+        document.getElementById('dlBar').parentElement.title = `Resets at ${resetHour}:00 UTC daily`;
+    } else {
+        document.getElementById('rulesGrid').style.display = 'none';
+    }
+
+    // ── Equity curve + Calendar ──
+    _calTradeResults = tradeResults;
+    renderEquityCurve(tradeResults, Number(acct.starting_balance), acct.current_balance_override != null ? Number(acct.current_balance_override) : null);
+    renderCalendar();
+}
+
+
+// ═══════════════════════════════════════════════════════════
+// P&L CALC
+// ═══════════════════════════════════════════════════════════
+// ── PIP CALCULATION ──
+// Returns pip size for a symbol (the unit of the 4th/2nd decimal place).
+// JPY pairs use 0.01, XAU uses 0.1, XAG uses 0.01, most FX use 0.0001.
+function pipSize(pair) {
+    if (!pair) return 0.0001;
+    const p = pair.toUpperCase().replace(/[^A-Z]/g, '');
+    if (p.endsWith('JPY') || p.startsWith('JPY')) return 0.01;
+    if (p.startsWith('XAU')) return 0.1;
+    if (p.startsWith('XAG')) return 0.01;
+    if (p.startsWith('XPT') || p.startsWith('XPD')) return 0.01;
+    return 0.0001;
+}
+
+function calcPips(t, acct) {
+    if (t.entry_price == null || t.close_price == null) return null;
+    const profile = acct?.broker_profile_id ? brokerProfiles.find(p => p.id === acct.broker_profile_id) : null;
+    const spec = resolveContractSpec(t.pair, profile);
+    const pSize = spec.pipSize ?? pipSize(t.pair);
+    const dir = normalizeDirection(t.trade_type) === 'sell' ? -1 : 1;
+    const rawMove = (Number(t.close_price) - Number(t.entry_price)) * dir;
+    return parseFloat((rawMove / pSize).toFixed(1));
+}
+
+function normalizeDirection(tradeType) {
+    if (!tradeType) return 'buy';
+    const v = String(tradeType).toLowerCase();
+    if (v.includes('short') || v.includes('sell') || v === 's') return 'sell';
+    return 'buy';
+}
+
+// Classifies a symbol into a calc method without a fixed pair list:
+// - ends in USD (currency or metal quoted directly in USD) → direct calc
+// - starts with USD (e.g. USDCHF, USDJPY) → calc then convert via /close_price
+// - anything else (indices, commodities, cross pairs) → needs a cloud-sourced
+//   contract spec, cached in asset_specs and flagged for manual validation.
+// Known currency codes (3-letter ISO) for cross-pair detection
+const ISO_CCY = new Set(['EUR','GBP','AUD','NZD','CAD','CHF','JPY','SGD','HKD','NOK','SEK','DKK','MXN','ZAR','TRY','PLN','CZK','HUF','THB','INR','CNH','CNY','KRW','TWD','BRL','ILS']);
+
+function classifySymbol(pair) {
+    if (!pair) return { kind: 'unknown' };
+    const p = pair.toUpperCase().replace(/[^A-Z]/g, '');
+
+    // Metal/commodity ending in USD (XAUUSD, XAGUSD etc.) — variable length prefix
+    const metalBase = Object.keys(METAL_OZ_PER_LOT).find(m => p.startsWith(m) && p.endsWith('USD'));
+    if (metalBase) {
+        return { kind: 'direct_usd', contractSize: METAL_OZ_PER_LOT[metalBase] };
+    }
+
+    // Standard 6-char pairs
+    if (p.length === 6) {
+        const base = p.slice(0, 3);
+        const quote = p.slice(3, 6);
+
+        if (quote === 'USD') {
+            const contractSize = METAL_OZ_PER_LOT[base] || STANDARD_FX_LOT;
+            return { kind: 'direct_usd', contractSize };
+        }
+        if (base === 'USD') {
+            return { kind: 'usd_base', contractSize: STANDARD_FX_LOT };
+        }
+        // Cross pair — both recognized ISO currencies, neither is USD
+        if (ISO_CCY.has(base) && ISO_CCY.has(quote)) {
+            return { kind: 'cross_pair', contractSize: STANDARD_FX_LOT, quoteCcy: quote };
+        }
+    }
+
+    return { kind: 'needs_lookup' };
+}
+
+
+// Commission priority chain:
+// 1. asset_spec.commission_per_lot (symbol-specific override)
+// 2. profile.commission_{asset_class} (class-level from spec's asset_class tag)
+// 3. profile.commission_per_lot (flat profile rate)
+// 4. account.commission_per_lot (legacy flat rate)
+function resolveCommission(t, acct) {
+    if (!acct) return 0;
+    const profile = acct.broker_profile_id ? brokerProfiles.find(p => p.id === acct.broker_profile_id) : null;
+    const spec = assetSpecsCache[t.pair];
+
+    // Priority 1: symbol-specific commission on the asset spec
+    if (spec && spec.commission_per_lot != null) {
+        return Number(spec.commission_per_lot);
+    }
+
+    if (profile) {
+        // Priority 2: profile class rate, driven by spec's asset_class tag
+        const assetClass = spec?.asset_class || _inferAssetClass(t.pair);
+        const classMap = {
+            forex:     profile.commission_forex,
+            metal:     profile.commission_metals,
+            index:     profile.commission_indices,
+            commodity: profile.commission_commodities,
+            crypto:    profile.commission_forex,  // fallback to forex rate for crypto
+            other:     null
+        };
+        const classRate = classMap[assetClass];
+        if (classRate != null) return Number(classRate);
+
+        // Priority 3: flat profile rate
+        if (profile.commission_per_lot != null) return Number(profile.commission_per_lot);
+    }
+
+    // Priority 4: legacy flat rate on account
+    return Number(acct.commission_per_lot || 0);
+}
+
+// Infer asset class from symbol when spec doesn't have one set yet
+function _inferAssetClass(pair) {
+    if (!pair) return 'other';
+    const p = pair.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (p.startsWith('XAU') || p.startsWith('XAG') || p.startsWith('XPT') || p.startsWith('XPD')) return 'metal';
+    if (p.length === 6 && ISO_CCY.has(p.slice(0,3)) && ISO_CCY.has(p.slice(3,6))) return 'forex';
+    if (p.endsWith('USD') && p.length === 6 && ISO_CCY.has(p.slice(0,3))) return 'forex';
+    if (p.startsWith('USD') && p.length === 6) return 'forex';
+    // Rough heuristic for indices/commodities — asset spec should be set explicitly
+    return 'other';
+}
+
+// Resolve profile-specific contract spec for a symbol.
+// Profile values take precedence over hardcoded defaults.
+function resolveContractSpec(pair, profile) {
+    if (!pair) return null;
+    const p = pair.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const metalBase = Object.keys(METAL_OZ_PER_LOT).find(m => p.startsWith(m));
+
+    if (p.includes('XAU') || p.startsWith('XAU')) {
+        return {
+            kind: 'direct_usd',
+            contractSize: profile?.lot_size_xau ?? METAL_OZ_PER_LOT['XAU'],
+            pipSize: profile?.pip_size_xau ?? 0.01,
+            pointValueUsd: profile?.point_value_metals_xau_usd ?? null
+        };
+    }
+    if (p.includes('XAG') || p.startsWith('XAG')) {
+        return {
+            kind: 'direct_usd',
+            contractSize: profile?.lot_size_xag ?? METAL_OZ_PER_LOT['XAG'],
+            pipSize: 0.001,
+            pointValueUsd: profile?.point_value_metals_xag_usd ?? null
+        };
+    }
+    if (metalBase) {
+        return {
+            kind: 'direct_usd',
+            contractSize: profile?.lot_size_other_metals ?? METAL_OZ_PER_LOT[metalBase],
+            pipSize: 0.01,
+            pointValueUsd: null
+        };
+    }
+    if (p.length === 6 && p.endsWith('USD')) {
+        return {
+            kind: 'direct_usd',
+            contractSize: profile?.lot_size_forex ?? STANDARD_FX_LOT,
+            pipSize: p.startsWith('JPY') ? (profile?.pip_size_jpy_pairs ?? 0.01) : (profile?.pip_size_forex ?? 0.0001),
+            pointValueUsd: profile?.point_value_forex_usd ?? null
+        };
+    }
+    if (p.length === 6 && p.startsWith('USD')) {
+        return {
+            kind: 'usd_base',
+            contractSize: profile?.lot_size_forex ?? STANDARD_FX_LOT,
+            pipSize: p.endsWith('JPY') ? (profile?.pip_size_jpy_pairs ?? 0.01) : (profile?.pip_size_forex ?? 0.0001),
+            pointValueUsd: null
+        };
+    }
+    if (p.length === 6 && ISO_CCY.has(p.slice(0,3)) && ISO_CCY.has(p.slice(3,6))) {
+        return {
+            kind: 'cross_pair',
+            contractSize: profile?.lot_size_forex ?? STANDARD_FX_LOT,
+            quoteCcy: p.slice(3,6),
+            pipSize: p.endsWith('JPY') ? (profile?.pip_size_jpy_pairs ?? 0.01) : (profile?.pip_size_forex ?? 0.0001),
+            pointValueUsd: null
+        };
+    }
+    return { kind: 'needs_lookup' };
+}
+
+// Returns { pnl, aiSourced } — aiSourced flags whether this figure relied on a
+// cloud-looked-up spec, so the UI can show the "validate manually" indicator.
+function calcPnl(t, acct) {
+    // lot_size missing — silent $0 would be misleading; flag it explicitly
+    if (t.lot_size == null) return { pnl: 0, aiSourced: false, noLotSize: true };
+    if (t.entry_price == null || t.close_price == null) return { pnl: 0, aiSourced: false };
+    const dir = normalizeDirection(t.trade_type) === 'sell' ? -1 : 1;
+    const profile = acct?.broker_profile_id ? brokerProfiles.find(p => p.id === acct.broker_profile_id) : null;
+    const spec = resolveContractSpec(t.pair, profile);
+    const commissionPerLot = resolveCommission(t, acct);
+    const commissionDeduct = commissionPerLot * Number(t.lot_size);
+
+    function withComm(rawPnl, extra) {
+        return { pnl: rawPnl - commissionDeduct, aiSourced: false, ...extra };
+    }
+
+    if (spec.kind === 'direct_usd') {
+        // If profile provides a point value, use it directly (most accurate for metals/indices)
+        if (spec.pointValueUsd != null) {
+            const pipMove = (Number(t.close_price) - Number(t.entry_price)) / (spec.pipSize || 0.01);
+            return withComm(pipMove * Number(t.lot_size) * spec.pointValueUsd * dir);
+        }
+        const pnl = (Number(t.close_price) - Number(t.entry_price)) * Number(t.lot_size) * spec.contractSize * dir;
+        return withComm(pnl);
+    }
+    if (spec.kind === 'usd_base') {
+        let pnl = (Number(t.close_price) - Number(t.entry_price)) * Number(t.lot_size) * spec.contractSize * dir;
+        pnl = pnl / Number(t.close_price);
+        return withComm(pnl);
+    }
+    if (spec.kind === 'cross_pair') {
+        const rate = fxRates[spec.quoteCcy];
+        if (!rate) return { pnl: 0, aiSourced: false, pending: true, pendingMsg: `Awaiting ${spec.quoteCcy}/USD rate — run Sync` };
+        const pnlInQuote = (Number(t.close_price) - Number(t.entry_price)) * Number(t.lot_size) * spec.contractSize * dir;
+        return withComm(pnlInQuote * rate);
+    }
+
+    // needs_lookup: try asset_specs cache, then AI lookup
+    const assetSpec = assetSpecsCache[t.pair];
+    if (!assetSpec) {
+        ensureAssetSpecLookup(t.pair);
+        return { pnl: 0, aiSourced: true, pending: true };
+    }
+    // Use spec's pip_size if set, otherwise fall back to point_value_usd direct calc
+    const specPipSize = assetSpec.pip_size;
+    const pointVal = assetSpec.point_value_usd;
+    if (pointVal != null) {
+        const effectivePipSize = specPipSize ?? 1;
+        const pipMove = (Number(t.close_price) - Number(t.entry_price)) / effectivePipSize * dir;
+        const pnl = pipMove * Number(t.lot_size) * Number(pointVal);
+        return { pnl: pnl - commissionDeduct, aiSourced: true };
+    }
+    if (assetSpec.contract_size != null) {
+        let pnl = (Number(t.close_price) - Number(t.entry_price)) * Number(t.lot_size) * Number(assetSpec.contract_size) * dir;
+        if (assetSpec.quote_currency && assetSpec.quote_currency !== 'USD') pnl = pnl / Number(t.close_price);
+        return { pnl: pnl - commissionDeduct, aiSourced: true };
+    }
+    return { pnl: 0, aiSourced: true };
+}
+
+// Fetches + caches a contract spec for an unrecognized symbol via the Gemini Worker,
+// stores it in asset_specs for reuse, then re-renders so the figure updates.
+async function ensureAssetSpecLookup(symbol) {
+    if (assetSpecsCache[symbol] || assetSpecsLookupInFlight.has(symbol)) return;
+    assetSpecsLookupInFlight.add(symbol);
+    try {
+        const { data: existing } = await sb.from('asset_specs').select('*')
+            .eq('user_id', currentUser.id).eq('symbol', symbol).maybeSingle();
+        if (existing) {
+            assetSpecsCache[symbol] = existing;
+            assetSpecsLookupInFlight.delete(symbol);
+            renderActiveAccount();
+            return;
+        }
+        if (!CONFIG.CF_WORKER) {
+            // show graceful degradation
+            console.warn('CF Worker not configured — Gemini AI unavailable');
+            return;
+        }
+        const res = await fetch((CONFIG.CF_WORKER ? CONFIG.CF_WORKER + '/' : null), {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'asset_spec', symbol })
+        });
+        const json = await res.json();
+        const row = {
+            user_id: currentUser.id, symbol,
+            contract_size: json.contract_size ?? null,
+            quote_currency: json.quote_currency ?? null,
+            point_value_usd: json.point_value_usd ?? null,
+            source: 'ai_lookup',
+            source_confidence: json.source_confidence || 'low',
+            notes: json.notes || null,
+            fetched_at: new Date().toISOString()
+        };
+        const { data: saved } = await sb.from('asset_specs').upsert(row, { onConflict: 'user_id,symbol' }).select().single();
+        assetSpecsCache[symbol] = saved || row;
+    } catch (e) {
+        console.warn('Asset spec lookup failed for', symbol, e.message);
+        assetSpecsCache[symbol] = { symbol, contract_size: null, source: 'ai_lookup', source_confidence: 'low', notes: 'Lookup failed' };
+    } finally {
+        assetSpecsLookupInFlight.delete(symbol);
+        renderActiveAccount();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// SYNC FROM JOURNAL (read-only)
+// ═══════════════════════════════════════════════════════════
+// ── PnL CALENDAR ──
+let calView = 'month';
+let calRefDate = new Date();
+let _calTradeResults = []; // set by renderActiveAccount each time
+
+function calSetView(v) {
+    calView = v;
+    renderCalendar();
+}
+function calNav(dir) {
+    const d = new Date(calRefDate);
+    if (calView === 'week') d.setDate(d.getDate() + dir * 7);
+    else if (calView === 'month') d.setMonth(d.getMonth() + dir);
+    else d.setFullYear(d.getFullYear() + dir);
+    calRefDate = d;
+    renderCalendar();
+}
+
+function calDateKey(d) {
+    return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+// Build a map: dateKey -> { totalPnl, totalPips, tradeCount, wins }
+// Calculate R-multiple for a single trade (null if sl_price missing)
+function calcR(t) {
+    if (t.entry_price == null || t.close_price == null || t.sl_price == null) return null;
+    const dir = normalizeDirection(t.trade_type) === 'sell' ? -1 : 1;
+    const risk = Math.abs(Number(t.entry_price) - Number(t.sl_price));
+    if (risk === 0) return null;
+    const profit = (Number(t.close_price) - Number(t.entry_price)) * dir;
+    return parseFloat((profit / risk).toFixed(2));
+}
+
+function buildCalDayMap(tradeResults) {
+    const map = {};
+    tradeResults.forEach(({ t, result }) => {
+        if (!t.close_time || result.pending || result.noLotSize) return;
+        const key = calDateKey(new Date(t.close_time));
+        if (!map[key]) map[key] = { totalPnl: 0, totalPips: 0, totalR: 0, rCount: 0, tradeCount: 0, wins: 0 };
+        map[key].totalPnl += result.pnl;
+        const pips = calcPips(t, acct);
+        if (pips !== null) map[key].totalPips += pips;
+        const r = calcR(t);
+        if (r !== null) { map[key].totalR += r; map[key].rCount++; }
+        map[key].tradeCount++;
+        if (result.pnl > 0) map[key].wins++;
+    });
+    return map;
+}
+
+function calCellHtml(dayMap, dateObj, inMonth) {
+    if (!inMonth) return '<div class="cal-cell cal-empty"></div>';
+    const key = calDateKey(dateObj);
+    const day = dayMap[key];
+    // Diagonal SVG dividing top-left (date+$) from bottom-right (pips/R)
+    const diagonal = `<svg style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;" preserveAspectRatio="none" viewBox="0 0 100 100"><line x1="0" y1="100" x2="100" y2="0" stroke="currentColor" stroke-width="0.8" opacity="0.15"/></svg>`;
+    const dateNum = dateObj.getDate();
+    // Ordinal suffix
+    const sfx = dateNum === 1||dateNum===21||dateNum===31?'st':dateNum===2||dateNum===22?'nd':dateNum===3||dateNum===23?'rd':'th';
+    if (!day) return `<div class="cal-cell">${diagonal}<div class="cal-tl"><span class="cal-date">${dateNum}<sup>${sfx}</sup></span></div></div>`;
+    const posClass = day.totalPnl >= 0 ? 'cal-pos' : 'cal-neg';
+    const amtColor = day.totalPnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+    const amtText = (day.totalPnl >= 0 ? '+' : '') + '$' + Math.abs(day.totalPnl).toFixed(0);
+    const pipText = (day.totalPips >= 0 ? '+' : '') + day.totalPips.toFixed(0) + 'p';
+    const rText = day.rCount > 0 ? ' / ' + (day.totalR >= 0 ? '+' : '') + day.totalR.toFixed(1) + 'R' : '';
+    const brColor = day.totalPips >= 0 ? 'var(--pos)' : 'var(--neg)';
+    return `<div class="cal-cell has-trades ${posClass}">
+        ${diagonal}
+        <div class="cal-tl">
+            <span class="cal-date">${dateNum}<sup>${sfx}</sup></span>
+            <span class="cal-amt" style="color:${amtColor}">${amtText}</span>
+        </div>
+        <div class="cal-br" style="color:${brColor}">${pipText}${rText}</div>
+    </div>`;
+}
+
+function weekColHtml(dayMap, weekDays) {
+    let weekPnl = 0, days = 0;
+    weekDays.forEach(d => {
+        const key = calDateKey(d);
+        if (dayMap[key]) { weekPnl += dayMap[key].totalPnl; days++; }
+    });
+    const posClass = weekPnl >= 0 ? 'cal-pos' : 'cal-neg';
+    const amtText = (weekPnl >= 0 ? '+' : '') + '$' + Math.abs(weekPnl).toFixed(0);
+    return `<div class="cal-week-col ${days > 0 ? posClass : ''}">
+        <div class="cwl">Weekly</div>
+        <div class="cwa">${days > 0 ? amtText : '—'}</div>
+        <div class="cwd">${days} day${days !== 1 ? 's' : ''}</div>
+    </div>`;
+}
+
+function renderCalendar() {
+    // Update view toggle buttons
+    document.querySelectorAll('[data-cv]').forEach(b =>
+        b.style.background = b.dataset.cv === calView ? 'var(--accent)' : '');
+    document.querySelectorAll('[data-cv]').forEach(b =>
+        b.style.color = b.dataset.cv === calView ? 'var(--accent-ink)' : '');
+
+    const dayMap = buildCalDayMap(_calTradeResults);
+    const grid = document.getElementById('calGrid');
+    const label = document.getElementById('calLabel');
+    const stats = document.getElementById('calStats');
+    if (!grid) return;
+
+    if (calView === 'week') {
+        // Find Monday of the current week
+        const mon = new Date(calRefDate);
+        const dow = mon.getDay() || 7;
+        mon.setDate(mon.getDate() - dow + 1);
+        const days = Array.from({length:5}, (_, i) => { const d = new Date(mon); d.setDate(d.getDate()+i); return d; });
+        const dowNames = ['Mon','Tue','Wed','Thu','Fri'];
+
+        let weekPnl = 0, weekPips = 0, tradeDays = 0;
+        days.forEach(d => {
+            const key = calDateKey(d);
+            if (dayMap[key]) { weekPnl += dayMap[key].totalPnl; weekPips += dayMap[key].totalPips; tradeDays++; }
+        });
+
+        const dowRow = `<div class="cal-dow-row" style="grid-template-columns:repeat(5,1fr)">${dowNames.map(n => `<span>${n}</span>`).join('')}</div>`;
+        const cells = `<div class="cal-grid" style="grid-template-columns:repeat(5,1fr)">${days.map(d => calCellHtml(dayMap, d, true)).join('')}</div>`;
+        grid.innerHTML = dowRow + cells;
+        label.textContent = days[0].toLocaleDateString(undefined,{month:'short',day:'numeric'}) + ' – ' + days[4].toLocaleDateString(undefined,{month:'short',day:'numeric'});
+        const statsText = tradeDays > 0 ? (weekPnl>=0?'+':'') + '$' + Math.abs(weekPnl).toFixed(2) + '  ' + (weekPips>=0?'+':'') + weekPips.toFixed(1) + 'p  ' + tradeDays + ' days' : '—';
+        stats.textContent = statsText;
+        stats.style.color = weekPnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+
+    } else if (calView === 'month') {
+        const ref = calRefDate;
+        const firstDay = new Date(ref.getFullYear(), ref.getMonth(), 1);
+        const lastDay = new Date(ref.getFullYear(), ref.getMonth()+1, 0);
+        // Start from Monday of the first week
+        const startMon = new Date(firstDay);
+        const dow = startMon.getDay() || 7; // 1=Mon..7=Sun
+        startMon.setDate(startMon.getDate() - dow + 1);
+
+        const dowNames = ['Mon','Tue','Wed','Thu','Fri','Weekly'];
+        const dowRow = `<div class="cal-dow-row" style="grid-template-columns:repeat(5,1fr) 60px">${dowNames.map(n=>`<span>${n}</span>`).join('')}</div>`;
+
+        let rows = '', monthPnl = 0, tradeDays = 0;
+        let cursor = new Date(startMon);
+        while (cursor <= lastDay || cursor.getDay() !== 1) {
+            // Mon-Fri only (5 days)
+            const weekDays = Array.from({length:5}, (_, i) => {
+                const d = new Date(cursor); d.setDate(d.getDate()+i); return d;
+            });
+            rows += `<div class="cal-grid" style="grid-template-columns:repeat(5,1fr) 60px;margin-bottom:3px;">`;
+            weekDays.forEach(d => {
+                const inMonth = d.getMonth() === ref.getMonth();
+                rows += calCellHtml(dayMap, d, inMonth);
+                if (inMonth && dayMap[calDateKey(d)]) { monthPnl += dayMap[calDateKey(d)].totalPnl; tradeDays++; }
+            });
+            rows += weekColHtml(dayMap, weekDays);
+            rows += '</div>';
+            cursor.setDate(cursor.getDate() + 7);
+        }
+
+        grid.innerHTML = dowRow + rows;
+        label.textContent = ref.toLocaleDateString(undefined, {month:'long', year:'numeric'});
+        stats.textContent = tradeDays > 0 ? (monthPnl>=0?'+':'') + '$' + Math.abs(monthPnl).toFixed(2) + ' · ' + tradeDays + ' days' : '—';
+        stats.style.color = monthPnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+
+    } else { // year
+        const ref = calRefDate;
+        let yearPnl = 0;
+        let cells = '<div class="cal-grid" style="grid-template-columns:repeat(4,1fr);gap:6px;">';
+        for (let m = 0; m < 12; m++) {
+            const mStart = new Date(ref.getFullYear(), m, 1);
+            const mEnd = new Date(ref.getFullYear(), m+1, 0);
+            let mPnl = 0, mPips = 0, mDays = 0;
+            for (let d = new Date(mStart); d <= mEnd; d.setDate(d.getDate()+1)) {
+                const key = calDateKey(d);
+                if (dayMap[key]) { mPnl += dayMap[key].totalPnl; mPips += dayMap[key].totalPips; mDays++; }
+            }
+            yearPnl += mPnl;
+            const posClass = mDays > 0 ? (mPnl >= 0 ? 'cal-pos' : 'cal-neg') : '';
+            const monthName = mStart.toLocaleDateString(undefined,{month:'short'});
+            const amtText = mDays > 0 ? (mPnl>=0?'+':'') + '$' + Math.abs(mPnl).toFixed(0) : '—';
+            const pipText = mDays > 0 ? (mPips>=0?'+':'') + mPips.toFixed(0) + 'p' : '';
+            cells += `<div class="cal-year-cell ${posClass}">
+                <div class="cyl">${monthName}</div>
+                <div class="cya">${amtText}</div>
+                <div class="cyp">${pipText}${mDays > 0 ? ' · ' + mDays + 'd' : ''}</div>
+            </div>`;
+        }
+        cells += '</div>';
+        grid.innerHTML = cells;
+        label.textContent = String(ref.getFullYear());
+        stats.textContent = (yearPnl>=0?'+':'') + '$' + Math.abs(yearPnl).toFixed(2) + ' YTD';
+        stats.style.color = yearPnl >= 0 ? 'var(--pos)' : 'var(--neg)';
+    }
+}
+
+// ── EQUITY CURVE ──
+let _equityChart = null;
+function renderEquityCurve(tradeResults, startBalance, currentBalOverride) {
+    const canvas = document.getElementById('equityCanvas');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const style = getComputedStyle(document.body);
+    const mutedColor = style.getPropertyValue('--muted').trim() || '#888';
+    const borderColor = style.getPropertyValue('--border').trim() || '#ddd';
+    const posColor = style.getPropertyValue('--pos').trim() || '#1E9E5A';
+    const negColor = style.getPropertyValue('--neg').trim() || '#E0475A';
+
+    // Build real trade data points
+    const realPoints = [];
+    let running = currentBalOverride != null ? currentBalOverride : startBalance;
+    tradeResults.forEach(({ t, result }) => {
+        if (result.noLotSize || result.pending || !t.close_time) return;
+        running += result.pnl;
+        const label = new Date(t.close_time).toLocaleDateString(undefined, { month:'short', day:'numeric' });
+        realPoints.push({ x: label, y: parseFloat(running.toFixed(2)) });
+    });
+
+    const finalBalance = realPoints.length ? realPoints[realPoints.length-1].y : (currentBalOverride ?? startBalance);
+    const lineColor = finalBalance >= startBalance ? posColor : negColor;
+
+    if (_equityChart) { _equityChart.destroy(); _equityChart = null; }
+
+    const datasets = [];
+
+    // Segment 1: dashed pre-history (only when current_balance_override is set)
+    if (currentBalOverride != null) {
+        datasets.push({
+            label: 'Pre-app history',
+            data: [startBalance, currentBalOverride],
+            labels: ['Start', 'App start'],
+            borderColor: mutedColor,
+            backgroundColor: 'transparent',
+            borderWidth: 2,
+            borderDash: [6, 4],
+            pointRadius: 4,
+            fill: false,
+            tension: 0
+        });
+    }
+
+    // Segment 2: real trades
+    const realLabels = [(currentBalOverride != null ? 'App start' : 'Start'), ...realPoints.map(p => p.x)];
+    const realData = [(currentBalOverride != null ? currentBalOverride : startBalance), ...realPoints.map(p => p.y)];
+    datasets.push({
+        label: 'Synced trades',
+        data: realData,
+        borderColor: lineColor,
+        backgroundColor: lineColor + '22',
+        borderWidth: 2,
+        pointRadius: realData.length > 30 ? 0 : 3,
+        fill: true,
+        tension: 0.3
+    });
+
+    // Combine labels: pre-history uses index-based x, real uses date labels
+    // Use Chart.js with separate datasets each having their own labels via x/y point format
+    _equityChart = new Chart(canvas, {
+        type: 'line',
+        data: {
+            labels: currentBalOverride != null
+                ? ['Start', 'App start', ...realPoints.map(p => p.x)]
+                : ['Start', ...realPoints.map(p => p.x)],
+            datasets: currentBalOverride != null ? [
+                {
+                    label: 'Pre-app history',
+                    data: [startBalance, currentBalOverride, ...realPoints.map(() => null)],
+                    borderColor: mutedColor,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    borderDash: [6, 4],
+                    pointRadius: 3,
+                    fill: false,
+                    tension: 0,
+                    spanGaps: false
+                },
+                {
+                    label: 'Synced trades',
+                    data: [null, currentBalOverride, ...realPoints.map(p => p.y)],
+                    borderColor: lineColor,
+                    backgroundColor: lineColor + '22',
+                    borderWidth: 2,
+                    pointRadius: realPoints.length > 30 ? 0 : 3,
+                    fill: true,
+                    tension: 0.3,
+                    spanGaps: false
+                }
+            ] : [
+                {
+                    label: 'Synced trades',
+                    data: [startBalance, ...realPoints.map(p => p.y)],
+                    borderColor: lineColor,
+                    backgroundColor: lineColor + '22',
+                    borderWidth: 2,
+                    pointRadius: realPoints.length > 30 ? 0 : 3,
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: currentBalOverride != null },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ' $' + Number(ctx.raw).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { maxTicksLimit: 8, color: mutedColor, font: { size: 10 } }, grid: { display: false } },
+                y: { ticks: { color: mutedColor, font: { size: 10 }, callback: v => '$' + v.toLocaleString() }, grid: { color: borderColor } }
+            }
+        }
+    });
+}
+
+// ── CSV EXPORT ──
+function exportToCsv() {
+    const acct = getActiveAccount();
+    if (!acct) return;
+    const rows = [['Date', 'Pair', 'Side', 'Lots', 'Entry', 'Close', 'P&L (USD)', 'Commission', 'Net P&L (USD)']];
+    const commPerLot = Number(acct.commission_per_lot) || 0;
+    // Re-derive from journalTradesCache filtered to this account's map
+    const mapIds = Object.entries(journalTradesCache.length ? {} : {});
+    const trades = journalTradesCache;
+    trades.forEach(t => {
+        const result = calcPnl(t, acct);
+        if (result.noLotSize || result.pending) return;
+        const comm = commPerLot * Number(t.lot_size);
+        const gross = result.pnl + comm;
+        rows.push([
+            t.close_time ? new Date(t.close_time).toLocaleDateString() : '',
+            t.pair || '',
+            normalizeDirection(t.trade_type),
+            t.lot_size ?? '',
+            t.entry_price ?? '',
+            t.close_price ?? '',
+            gross.toFixed(2),
+            comm.toFixed(2),
+            result.pnl.toFixed(2)
+        ]);
+    });
+    const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `${acct.name.replace(/[^a-zA-Z0-9]/g,'_')}_trades.csv`;
+    a.click(); URL.revokeObjectURL(url);
+}
+
+async function syncFromJournal() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true; btn.textContent = 'Syncing…';
+    try {
+        const { data, error } = await sb.from('trades').select(
+            'id,pair,trade_type,entry_price,close_price,sl_price,tp_price,lot_size,status,open_time,close_time'
+        ).eq('status', 'closed').eq('is_intraday', true);
+        if (error) throw error;
+        journalTradesCache = data || [];
+
+        // Collect all quote currencies needed for cross pairs in this dataset
+        const quoteCcysNeeded = new Set();
+        journalTradesCache.forEach(t => {
+            const cls = classifySymbol(t.pair);
+            if (cls.kind === 'cross_pair') quoteCcysNeeded.add(cls.quoteCcy);
+        });
+
+        // Fetch all needed rates in one Frankfurter call (ECB rates, daily)
+        if (quoteCcysNeeded.size > 0) {
+            await fetchFxRates([...quoteCcysNeeded]);
+        }
+
+        document.getElementById('syncNote').textContent = `Synced ${journalTradesCache.length} intraday trades — ${new Date().toLocaleString()}`;
+    } catch (e) {
+        console.error(e);
+        document.getElementById('syncNote').textContent = 'Sync failed — see console';
+    } finally {
+        btn.disabled = false; btn.textContent = 'Sync';
+    }
+    await renderActiveAccount();
+}
+
+// Fetches quote-to-USD rates from Frankfurter.app (ECB rates, free, no API key).
+// Accepts an array of 3-letter currency codes (e.g. ['JPY','CHF','GBP']).
+// Stores results in the session fxRates cache as { JPY: 0.0067, ... }
+async function fetchFxRates(ccys) {
+    try {
+        // Frankfurter supports multi-currency from a single base in one call
+        // e.g. /latest?from=USD&to=JPY,CHF,GBP  → inverse gives us ccy/USD
+        const symbols = ccys.join(',');
+        const res = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${symbols}`);
+        if (!res.ok) throw new Error(`Frankfurter HTTP ${res.status}`);
+        const json = await res.json();
+        // json.rates = { JPY: 149.5, CHF: 0.895, ... } (USD per 1 of each ccy, inverted)
+        // We need ccy/USD, so: JPY/USD = 1/149.5
+        Object.entries(json.rates || {}).forEach(([ccy, usdPerCcy]) => {
+            fxRates[ccy] = 1 / usdPerCcy;
+        });
+        // Also ensure USD itself is set (trivially 1)
+        fxRates['USD'] = 1;
+    } catch (e) {
+        // Non-fatal — cross-pair trades will show ⏳ until next sync
+        console.warn('FX rate fetch failed:', e.message);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADD ACCOUNT MODAL
+// ═══════════════════════════════════════════════════════════
+function openAddAccountModal() {
+    document.getElementById('addAccountScrim').classList.add('open');
+    resetAddAccountForm();
+}
+function closeAddAccountModal() { document.getElementById('addAccountScrim').classList.remove('open'); }
+
+function resetAddAccountForm() {
+    ['fName','fFirm','fAcctType','fBrokerName','fStartBal','fCurrBal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('fProfileMsg').textContent = '';
+    const saveBtn = document.getElementById('confirmSaveBtn');
+    if (saveBtn) { saveBtn.textContent = 'Save Account'; saveBtn.disabled = false; }
+    setAccountKind('prop');
+    setAccountPaper(false);
+}
+
+function setAccountPaper(isPaper) {
+    addAccountPaper = isPaper;
+    document.getElementById('paperLiveBtn').classList.toggle('sel', !isPaper);
+    document.getElementById('paperPaperBtn').classList.toggle('sel', isPaper);
+    populateFProfileDropdown();
+}
+
+function setAccountKind(kind) {
+    addAccountKind = kind;
+    document.getElementById('kindPropBtn').classList.toggle('sel', kind === 'prop');
+    document.getElementById('kindPersonalBtn').classList.toggle('sel', kind === 'personal');
+    document.getElementById('propFields').style.display = kind === 'prop' ? 'block' : 'none';
+    document.getElementById('personalFields').style.display = kind === 'personal' ? 'block' : 'none';
+    // Current balance field only shown for prop accounts (mid-evaluation entry)
+    document.getElementById('fCurrBalField').style.display = kind === 'prop' ? 'block' : 'none';
+    populateFProfileDropdown();
+}
+
+// Populate profile dropdown filtered by account type + paper status
+function populateFProfileDropdown() {
+    const sel = document.getElementById('fProfile');
+    const msgEl = document.getElementById('fProfileMsg');
+    if (!sel) return;
+
+    // Profiles matching: prop accounts get prop profiles, personal get broker profiles
+    const typeFilter = addAccountKind === 'prop' ? 'prop' : 'broker';
+    // Paper accounts can use same profile types — no additional filter
+    const matching = brokerProfiles.filter(p => p.profile_type === typeFilter);
+
+    sel.innerHTML = '<option value="">— Select a profile —</option>';
+    matching.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.profile_name;
+        sel.appendChild(opt);
+    });
+
+    if (!matching.length) {
+        msgEl.innerHTML = `No ${typeFilter === 'prop' ? 'prop firm' : 'broker'} profiles yet. <span style="color:var(--accent);cursor:pointer;text-decoration:underline;" onclick="closeAddAccountModal();openNewProfileModal('${typeFilter}')">Create one first →</span>`;
+        msgEl.style.color = 'var(--neg)';
+        document.getElementById('confirmSaveBtn').disabled = true;
+    } else {
+        msgEl.textContent = '';
+        document.getElementById('confirmSaveBtn').disabled = false;
+    }
+}
+
+async function confirmSaveAccount() {
+    const name = document.getElementById('fName').value.trim();
+    const startBal = parseFloat(document.getElementById('fStartBal').value);
+    const profileId = document.getElementById('fProfile').value;
+
+    if (!name) { alert('Account name is required.'); return; }
+    if (!startBal) { alert('Starting balance is required.'); return; }
+    if (!profileId) { alert('Please select a profile. Create one in Settings → Profiles first.'); return; }
+
+    const currBalRaw = document.getElementById('fCurrBal')?.value;
+    const currBal = currBalRaw ? parseFloat(currBalRaw) : null;
+
+    const saveBtn = document.getElementById('confirmSaveBtn');
+    saveBtn.textContent = '⏳ Saving…';
+    saveBtn.disabled = true;
+
+    const payload = {
+        user_id: currentUser.id,
+        name,
+        account_kind: addAccountKind,
+        is_paper: addAccountPaper,
+        starting_balance: startBal,
+        current_balance_override: (addAccountKind === 'prop' && currBal && currBal !== startBal) ? currBal : null,
+        currency: 'USD',
+        status: 'active',
+        broker_profile_id: profileId,
+        user_confirmed_at: new Date().toISOString()
+    };
+
+    if (addAccountKind === 'prop') {
+        payload.firm_name = document.getElementById('fFirm').value.trim() || null;
+        payload.account_type = document.getElementById('fAcctType').value.trim() || null;
+    } else {
+        payload.broker_name = document.getElementById('fBrokerName').value.trim() || null;
+    }
+
+    const { data, error } = await sb.from('accounts').insert(payload).select().single();
+    saveBtn.textContent = 'Save Account';
+    saveBtn.disabled = false;
+    if (error) { alert('Save failed: ' + error.message); return; }
+
+    accounts.push(data);
+    activeAccountId = data.id;
+    closeAddAccountModal();
+    renderDrawer();
+    renderActiveAccount();
+}
+
+// ═══════════════════════════════════════════════════════════
+// UI HELPERS — NAVIGATION, THEME
+// ═══════════════════════════════════════════════════════════
+function toggleDrawer(open) {
+    document.getElementById('drawer').classList.toggle('open', open);
+    document.getElementById('scrim').classList.toggle('open', open);
+}
+
+let _currentPage = 'dashboard'; // 'dashboard' | 'settings'
+
+function navigateToSettings() {
+    _currentPage = 'settings';
+    document.getElementById('dashboardPage').style.display = 'none';
+    document.getElementById('settingsPage').style.display = 'block';
+    document.getElementById('fabAddAccount').style.display = 'none';
+    document.getElementById('syncBtn').style.display = 'none';
+    document.getElementById('topbarMenuBtn').style.display = 'none';
+    document.getElementById('topbarBackBtn').style.display = '';
+    document.getElementById('topbarBrand').innerHTML = 'Settings';
+    toggleDrawer(false);
+    renderSettingsPage();
+}
+
+function navigateToDashboard() {
+    _currentPage = 'dashboard';
+    document.getElementById('dashboardPage').style.display = '';
+    document.getElementById('settingsPage').style.display = 'none';
+    document.getElementById('fabAddAccount').style.display = '';
+    document.getElementById('syncBtn').style.display = '';
+    document.getElementById('topbarMenuBtn').style.display = '';
+    document.getElementById('topbarBackBtn').style.display = 'none';
+    document.getElementById('topbarBrand').innerHTML = 'PnL <span style="color:var(--accent)">Tracker</span> <span id="activeAccountLabel"></span>';
+    // Restore account label
+    const acct = getActiveAccount();
+    const lbl = document.getElementById('activeAccountLabel');
+    if (lbl && acct) lbl.textContent = '— ' + acct.name;
+}
+
+function setTheme(theme) {
+    document.body.setAttribute('data-theme', theme);
+    localStorage.setItem('pnl_theme', theme);
+    // Update active pill
+    document.querySelectorAll('.theme-pill').forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+    if (_equityChart && _calTradeResults.length) {
+        const acct = getActiveAccount();
+        if (acct) renderEquityCurve(_calTradeResults, Number(acct.starting_balance), acct.current_balance_override != null ? Number(acct.current_balance_override) : null);
+    }
+}
+
+(function restoreTheme() {
+    const saved = localStorage.getItem('pnl_theme');
+    const valid = ['light','dark','black','journal'];
+    if (saved && valid.includes(saved)) {
+        document.body.setAttribute('data-theme', saved);
+        // Pills not yet rendered — setTheme called again after settings renders
+    }
+})();
+
+// ═══════════════════════════════════════════════════════════
+// SETTINGS PAGE RENDERERS
+// ═══════════════════════════════════════════════════════════
+function renderSettingsPage() {
+    // Theme pills
+    const saved = document.body.getAttribute('data-theme') || 'light';
+    document.querySelectorAll('.theme-pill').forEach(b => b.classList.toggle('active', b.dataset.theme === saved));
+    renderProfilesList();
+    renderAcctProfileLinks();
+    renderAssetSpecsList();
+}
+
+// ── Profiles ──
+function renderProfilesList() {
+    const el = document.getElementById('profilesList');
+    if (!el) return;
+    if (!brokerProfiles.length) {
+        el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);padding:8px 0;">No profiles yet. Add one above.</div>';
+        return;
+    }
+    el.innerHTML = brokerProfiles.map(p => {
+        const linkedAccts = accounts.filter(a => a.broker_profile_id === p.id).map(a => a.name);
+        const linkedTxt = linkedAccts.length ? linkedAccts.join(', ') : 'No accounts linked';
+        const typeLabel = p.profile_type === 'prop' ? 'Prop Firm' : 'Broker';
+
+        const propHtml = p.profile_type === 'prop' ? `
+            <div class="pc-fields" style="grid-template-columns:repeat(3,1fr)">
+                <div class="pc-field"><label>Profit Target %</label><input id="pf_target_${p.id}" type="number" step="0.1" value="${p.profit_target_pct??''}"></div>
+                <div class="pc-field"><label>Drawdown %</label><input id="pf_dd_${p.id}" type="number" step="0.1" value="${p.drawdown_pct??''}"></div>
+                <div class="pc-field"><label>Daily Loss Limit %</label><input id="pf_daily_${p.id}" type="number" step="0.1" value="${p.daily_loss_limit_pct??''}"></div>
+                <div class="pc-field"><label>Drawdown Type</label>
+                    <select id="pf_ddtype_${p.id}">
+                        <option value="static" ${p.drawdown_type==='static'?'selected':''}>Static</option>
+                        <option value="trailing" ${p.drawdown_type==='trailing'?'selected':''}>Trailing</option>
+                        <option value="trailing_to_be" ${p.drawdown_type==='trailing_to_be'?'selected':''}>Trailing to BE</option>
+                    </select>
+                </div>
+                <div class="pc-field"><label>Daily Reset UTC Hr</label><input id="pf_reset_${p.id}" type="number" min="0" max="23" value="${p.daily_reset_utc_hour??22}"></div>
+            </div>` : '';
+
+        const classHtml = (label, commId, commVal, extras) => `
+            <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 4px;">${label}</div>
+            <div class="pc-fields" style="grid-template-columns:repeat(3,1fr)">
+                <div class="pc-field"><label>Comm/Lot (USD)</label><input id="${commId}" type="number" step="0.01" value="${commVal??''}"></div>
+                ${extras}
+            </div>`;
+
+        const fxHtml = classHtml('Forex', `pf_commFx_${p.id}`, p.commission_forex,
+            `<div class="pc-field"><label>Lot Size</label><input id="pf_lotFx_${p.id}" type="number" value="${p.lot_size_forex??100000}"></div>
+             <div class="pc-field"><label>Pip Size</label><input id="pf_pipFx_${p.id}" type="number" step="0.00001" value="${p.pip_size_forex??0.0001}"></div>
+             <div class="pc-field"><label>Point Val USD/Lot</label><input id="pf_pvFx_${p.id}" type="number" step="0.01" value="${p.point_value_forex_usd??''}"></div>`);
+
+        const metalHtml = classHtml('Metals', `pf_commMetal_${p.id}`, p.commission_metals,
+            `<div class="pc-field"><label>XAU Lot (oz)</label><input id="pf_lotXau_${p.id}" type="number" value="${p.lot_size_xau??100}"></div>
+             <div class="pc-field"><label>XAG Lot (oz)</label><input id="pf_lotXag_${p.id}" type="number" value="${p.lot_size_xag??5000}"></div>
+             <div class="pc-field"><label>XAU Pip Size</label><input id="pf_pipXau_${p.id}" type="number" step="0.001" value="${p.pip_size_xau??0.01}"></div>
+             <div class="pc-field"><label>XAU Pt Val USD/Lot</label><input id="pf_pvXau_${p.id}" type="number" step="0.01" value="${p.point_value_metals_xau_usd??''}"></div>
+             <div class="pc-field"><label>XAG Pt Val USD/Lot</label><input id="pf_pvXag_${p.id}" type="number" step="0.01" value="${p.point_value_metals_xag_usd??''}"></div>`);
+
+        const idxHtml = classHtml('Indices', `pf_commIdx_${p.id}`, p.commission_indices,
+            `<div class="pc-field"><label>Lot Size</label><input id="pf_lotIdx_${p.id}" type="number" value="${p.lot_size_indices??1}"></div>
+             <div class="pc-field"><label>Point Val USD/Lot</label><input id="pf_pvIdx_${p.id}" type="number" step="0.01" value="${p.point_value_indices_usd??''}"></div>`);
+
+        const comHtml = classHtml('Commodities', `pf_commCom_${p.id}`, p.commission_commodities,
+            `<div class="pc-field"><label>Lot Size</label><input id="pf_lotCom_${p.id}" type="number" value="${p.lot_size_commodities??1}"></div>
+             <div class="pc-field"><label>Point Val USD/Lot</label><input id="pf_pvCom_${p.id}" type="number" step="0.01" value="${p.point_value_commodities_usd??''}"></div>`);
+
+        return `<div class="profile-card">
+            <div class="pc-head">
+                <div>
+                    <div class="pc-name">${p.profile_name}</div>
+                    <div style="font-size:11px;color:var(--muted);margin-top:2px;">${typeLabel}</div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    <button class="btn ghost" style="padding:5px 12px;font-size:11px;" onclick="saveProfileEdit('${p.id}')">Save</button>
+                    <button class="btn ghost" style="padding:5px 10px;font-size:11px;color:var(--neg);" onclick="deleteProfile('${p.id}')">✕</button>
+                </div>
+            </div>
+            ${propHtml}
+            ${fxHtml}${metalHtml}${idxHtml}${comHtml}
+            <div class="pc-linked">Linked: ${linkedTxt}</div>
+        </div>`;
+    }).join('');
+}
+
+async function saveProfileEdit(profileId) {
+    const p = brokerProfiles.find(x => x.id === profileId);
+    if (!p) return;
+    // Find the save button for this profile card and animate it
+    const saveBtn = document.querySelector(`[onclick="saveProfileEdit('${profileId}')"]`);
+    if (saveBtn) { saveBtn.textContent = '⏳'; saveBtn.disabled = true; }
+    const g = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const pf = (id) => parseFloat(g(id)) || null;
+    const pi = (id) => parseInt(g(id));
+
+    const payload = {
+        profile_name: p.profile_name,
+        // Prop rules
+        profit_target_pct:    pf(`pf_target_${profileId}`),
+        drawdown_pct:         pf(`pf_dd_${profileId}`),
+        daily_loss_limit_pct: pf(`pf_daily_${profileId}`),
+        daily_reset_utc_hour: pi(`pf_reset_${profileId}`) ?? 22,
+        drawdown_type:        g(`pf_ddtype_${profileId}`) || 'static',
+        // Forex
+        commission_forex:        pf(`pf_commFx_${profileId}`),
+        lot_size_forex:          pf(`pf_lotFx_${profileId}`) ?? 100000,
+        pip_size_forex:          pf(`pf_pipFx_${profileId}`) ?? 0.0001,
+        point_value_forex_usd:   pf(`pf_pvFx_${profileId}`),
+        // Metals
+        commission_metals:           pf(`pf_commMetal_${profileId}`),
+        lot_size_xau:                pf(`pf_lotXau_${profileId}`) ?? 100,
+        lot_size_xag:                pf(`pf_lotXag_${profileId}`) ?? 5000,
+        pip_size_xau:                pf(`pf_pipXau_${profileId}`) ?? 0.01,
+        point_value_metals_xau_usd:  pf(`pf_pvXau_${profileId}`),
+        point_value_metals_xag_usd:  pf(`pf_pvXag_${profileId}`),
+        // Indices
+        commission_indices:      pf(`pf_commIdx_${profileId}`),
+        lot_size_indices:        pf(`pf_lotIdx_${profileId}`) ?? 1,
+        point_value_indices_usd: pf(`pf_pvIdx_${profileId}`),
+        // Commodities
+        commission_commodities:      pf(`pf_commCom_${profileId}`),
+        lot_size_commodities:        pf(`pf_lotCom_${profileId}`) ?? 1,
+        point_value_commodities_usd: pf(`pf_pvCom_${profileId}`),
+    };
+    const { error } = await sb.from('broker_profiles').update(payload).eq('id', profileId);
+    if (saveBtn) { saveBtn.textContent = 'Save'; saveBtn.disabled = false; }
+    if (error) { alert('Save failed: ' + error.message); return; }
+    Object.assign(p, payload);
+    renderActiveAccount();
+    renderProfilesList();
+    alert('Profile saved.');
+}
+
+async function deleteProfile(profileId) {
+    if (!confirm('Delete this profile? Accounts linked to it will be unlinked.')) return;
+    // Unlink accounts
+    const linkedAccts = accounts.filter(a => a.broker_profile_id === profileId);
+    for (const a of linkedAccts) {
+        await sb.from('accounts').update({ broker_profile_id: null }).eq('id', a.id);
+        a.broker_profile_id = null;
+    }
+    await sb.from('broker_profiles').delete().eq('id', profileId);
+    brokerProfiles = brokerProfiles.filter(x => x.id !== profileId);
+    renderProfilesList();
+    renderAcctProfileLinks();
+}
+
+function openNewProfileModal(type) {
+    _editingProfileId = null;
+    _editingProfileType = type;
+    document.getElementById('profileModalTitle').textContent = type === 'prop' ? 'New Prop Firm Profile' : 'New Broker Profile';
+    document.getElementById('profileModalSub').textContent = type === 'prop'
+        ? 'Enter firm name, fetch AI-suggested rules, review and confirm'
+        : 'Enter broker name, fetch AI-suggested specs, review and confirm';
+    // Reset all fields
+    ['pmName','pmFirmName','pmTarget','pmDD','pmDaily','pmReset',
+     'pmCommFx','pmLotFx','pmPipFx','pmPvFx',
+     'pmCommMetal','pmLotXau','pmLotXag','pmPipXau','pmPvXau','pmPvXag',
+     'pmCommIdx','pmLotIdx','pmPvIdx',
+     'pmCommCom','pmLotCom','pmPvCom'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+    document.getElementById('pmDDType').value = 'static';
+    document.getElementById('pmSpreadFx').value = '';
+    document.getElementById('pmReset').value = '22';
+    document.getElementById('pmFetchMsg').textContent = '';
+    document.getElementById('pmFetchMsg').className = '';
+    document.getElementById('pmStep2').style.display = 'none';
+    document.getElementById('pmSaveBtn').style.display = 'none';
+    document.getElementById('pmPropRules').style.display = type === 'prop' ? 'block' : 'none';
+    document.getElementById('pmAiNotes').textContent = '';
+    // Clear confidence badges
+    ['pmFxConf','pmMetalConf','pmIdxConf','pmComConf'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '';
+    });
+    document.getElementById('profileModalScrim').classList.add('open');
+}
+
+function closeProfileModal() { document.getElementById('profileModalScrim').classList.remove('open'); }
+
+// Fetches full per-class profile data from Gemini via the Worker
+async function fetchProfileRules() {
+    const firmName = document.getElementById('pmFirmName').value.trim();
+    if (!firmName) {
+        const msg = document.getElementById('pmFetchMsg');
+        msg.textContent = 'Enter a firm or broker name first.';
+        msg.className = 'msg err';
+        return;
+    }
+    const msg = document.getElementById('pmFetchMsg');
+    const fetchBtn = document.querySelector('#pmStep1 .btn.primary');
+    if (fetchBtn) { fetchBtn.textContent = '⏳ Fetching…'; fetchBtn.disabled = true; }
+    msg.textContent = 'Fetching from AI…';
+    msg.className = 'msg';
+
+    try {
+        if (!CONFIG.CF_WORKER) {
+            // show graceful degradation
+            console.warn('CF Worker not configured — Gemini AI unavailable');
+            msg.textContent = 'AI lookup unavailable — CF Worker not configured.';
+            msg.className = 'msg err';
+            return;
+        }
+        const res = await fetch((CONFIG.CF_WORKER ? CONFIG.CF_WORKER + '/' : null), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                mode: 'profile_rules',
+                firmName,
+                accountType: '',
+                brokerContext: _editingProfileType  // 'prop' or 'broker'
+            })
+        });
+        const json = await res.json();
+        if (json.error) { msg.textContent = json.error; msg.className = 'msg err'; return; }
+
+        // ── Populate Prop rules ──
+        if (_editingProfileType === 'prop' && json.prop_rules) {
+            const r = json.prop_rules;
+            document.getElementById('pmTarget').value = r.profit_target_pct ?? '';
+            document.getElementById('pmDD').value = r.drawdown_pct ?? '';
+            document.getElementById('pmDaily').value = r.daily_loss_limit_pct ?? '';
+            document.getElementById('pmReset').value = r.daily_reset_utc_hour ?? 22;
+            if (r.drawdown_type) document.getElementById('pmDDType').value = r.drawdown_type;
+        }
+
+        // ── Populate asset classes ──
+        const ac = json.asset_classes || {};
+
+        function confBadge(notes, confidence) {
+            if (!confidence) return '';
+            const c = confidence === 'high' ? 'var(--pos)' : 'var(--neg)';
+            return `<span style="color:${c};font-size:9px;">(${confidence} confidence${notes ? ' · ' + notes : ''})</span>`;
+        }
+
+        if (ac.forex) {
+            const f = ac.forex;
+            document.getElementById('pmCommFx').value  = f.commission_per_lot ?? '';
+            document.getElementById('pmLotFx').value   = f.lot_size ?? 100000;
+            document.getElementById('pmPipFx').value   = f.pip_size ?? 0.0001;
+            document.getElementById('pmPvFx').value    = f.point_value_usd ?? '';
+            if (f.spread_type) document.getElementById('pmSpreadFx').value = f.spread_type;
+            const el = document.getElementById('pmFxConf');
+            if (el) el.innerHTML = confBadge(f.notes, json.source_confidence);
+        }
+
+        if (ac.metals) {
+            const m = ac.metals;
+            document.getElementById('pmCommMetal').value = m.commission_per_lot ?? '';
+            document.getElementById('pmLotXau').value    = m.lot_size_xau ?? 100;
+            document.getElementById('pmLotXag').value    = m.lot_size_xag ?? 5000;
+            document.getElementById('pmPipXau').value    = m.pip_size_xau ?? 0.01;
+            document.getElementById('pmPvXau').value     = m.point_value_xau_usd ?? '';
+            document.getElementById('pmPvXag').value     = m.point_value_xag_usd ?? '';
+            const el = document.getElementById('pmMetalConf');
+            if (el) el.innerHTML = confBadge(m.notes, json.source_confidence);
+        }
+
+        if (ac.indices) {
+            const i = ac.indices;
+            document.getElementById('pmCommIdx').value = i.commission_per_lot ?? '';
+            document.getElementById('pmLotIdx').value  = i.lot_size ?? 1;
+            document.getElementById('pmPvIdx').value   = i.point_value_usd ?? '';
+            const el = document.getElementById('pmIdxConf');
+            if (el) el.innerHTML = confBadge(i.notes, json.source_confidence);
+        }
+
+        if (ac.commodities) {
+            const c = ac.commodities;
+            document.getElementById('pmCommCom').value = c.commission_per_lot ?? '';
+            document.getElementById('pmLotCom').value  = c.lot_size ?? 1;
+            document.getElementById('pmPvCom').value   = c.point_value_usd ?? '';
+            const el = document.getElementById('pmComConf');
+            if (el) el.innerHTML = confBadge(c.notes, json.source_confidence);
+        }
+
+        // Overall notes
+        const notesEl = document.getElementById('pmAiNotes');
+        if (notesEl && json.notes) notesEl.textContent = '📌 ' + json.notes;
+
+        // Show review section
+        document.getElementById('pmStep2').style.display = 'block';
+        document.getElementById('pmSaveBtn').style.display = 'block';
+        msg.textContent = json.source_confidence === 'low'
+            ? 'Low confidence — please fill in blanks manually before saving.'
+            : 'Fetched — review all values against your firm/broker before saving.';
+        msg.className = 'msg ok';
+
+    } catch (e) {
+        msg.textContent = 'Request failed: ' + e.message;
+        msg.className = 'msg err';
+    } finally {
+        const fetchBtn = document.querySelector('#pmStep1 .btn.primary');
+        if (fetchBtn) { fetchBtn.textContent = 'Fetch with AI'; fetchBtn.disabled = false; }
+    }
+}
+
+// Build full payload from all asset-class fields
+function _buildProfilePayload() {
+    const payload = {
+        user_id: currentUser.id,
+        profile_name: document.getElementById('pmName').value.trim(),
+        profile_type: _editingProfileType,
+        // Prop rules
+        profit_target_pct:    parseFloat(document.getElementById('pmTarget')?.value) || null,
+        drawdown_pct:         parseFloat(document.getElementById('pmDD')?.value) || null,
+        daily_loss_limit_pct: parseFloat(document.getElementById('pmDaily')?.value) || null,
+        daily_reset_utc_hour: parseInt(document.getElementById('pmReset')?.value) ?? 22,
+        drawdown_type:        document.getElementById('pmDDType')?.value || 'static',
+        // Forex
+        commission_forex:   parseFloat(document.getElementById('pmCommFx')?.value) || null,
+        lot_size_forex:     parseFloat(document.getElementById('pmLotFx')?.value) || 100000,
+        pip_size_forex:     parseFloat(document.getElementById('pmPipFx')?.value) || 0.0001,
+        point_value_forex_usd: parseFloat(document.getElementById('pmPvFx')?.value) || null,
+        // Metals
+        commission_metals:      parseFloat(document.getElementById('pmCommMetal')?.value) || null,
+        lot_size_xau:           parseFloat(document.getElementById('pmLotXau')?.value) || 100,
+        lot_size_xag:           parseFloat(document.getElementById('pmLotXag')?.value) || 5000,
+        pip_size_xau:           parseFloat(document.getElementById('pmPipXau')?.value) || 0.01,
+        point_value_metals_xau_usd: parseFloat(document.getElementById('pmPvXau')?.value) || null,
+        point_value_metals_xag_usd: parseFloat(document.getElementById('pmPvXag')?.value) || null,
+        // Indices
+        commission_indices:     parseFloat(document.getElementById('pmCommIdx')?.value) || null,
+        lot_size_indices:       parseFloat(document.getElementById('pmLotIdx')?.value) || 1,
+        point_value_indices_usd: parseFloat(document.getElementById('pmPvIdx')?.value) || null,
+        // Commodities
+        commission_commodities:     parseFloat(document.getElementById('pmCommCom')?.value) || null,
+        lot_size_commodities:       parseFloat(document.getElementById('pmLotCom')?.value) || 1,
+        point_value_commodities_usd: parseFloat(document.getElementById('pmPvCom')?.value) || null,
+    };
+    return payload;
+}
+
+async function saveProfile() {
+    const name = document.getElementById('pmName').value.trim();
+    if (!name) { alert('Profile name is required.'); return; }
+    const saveBtn = document.getElementById('pmSaveBtn');
+    saveBtn.textContent = '⏳ Saving…';
+    saveBtn.disabled = true;
+    const payload = _buildProfilePayload();
+    const { data, error } = await sb.from('broker_profiles').insert(payload).select().single();
+    saveBtn.textContent = 'Confirm & Save';
+    saveBtn.disabled = false;
+    if (error) { alert('Save failed: ' + error.message); return; }
+    brokerProfiles.push(data);
+    closeProfileModal();
+    renderProfilesList();
+    renderAcctProfileLinks();
+}
+
+
+// ── Account→Profile links ──
+function renderAcctProfileLinks() {
+    const el = document.getElementById('acctProfileLinks');
+    if (!el) return;
+    if (!accounts.length) { el.innerHTML = '<div style="font-size:12.5px;color:var(--muted);">No accounts yet.</div>'; return; }
+    el.innerHTML = accounts.map(a => {
+        const opts = '<option value="">— None —</option>' + brokerProfiles.map(p =>
+            `<option value="${p.id}" ${a.broker_profile_id===p.id?'selected':''}>${p.profile_name} (${p.profile_type==='prop'?'Prop':'Broker'})</option>`
+        ).join('');
+        const sub = a.account_kind === 'prop' ? `Prop · ${a.account_type||'—'}` : (a.broker_name||'Personal');
+        return `<div class="acct-profile-row">
+            <div><div class="apr-name">${a.name}</div><div class="apr-sub">${sub}</div></div>
+            <select onchange="linkAccountProfile('${a.id}', this.value)">${opts}</select>
+        </div>`;
+    }).join('');
+}
+
+async function linkAccountProfile(accountId, profileId) {
+    const val = profileId || null;
+    const { error } = await sb.from('accounts').update({ broker_profile_id: val }).eq('id', accountId);
+    if (error) { alert('Link failed: ' + error.message); return; }
+    const a = accounts.find(x => x.id === accountId);
+    if (a) a.broker_profile_id = val;
+    renderProfilesList(); // update linked accounts display
+    renderActiveAccount();
+}
+
+// ── Asset Specs ──
+function renderAssetSpecsList() {
+    const el = document.getElementById('assetSpecsList');
+    if (!el) return;
+    const specs = Object.values(assetSpecsCache);
+    if (!specs.length) {
+        el.innerHTML = '<div style="font-size:13px;color:var(--muted);padding:8px 0;">No asset specs yet — they auto-populate when you sync trades containing non-standard instruments (indices, commodities, crypto etc.).</div>';
+        return;
+    }
+
+    const CLASS_OPTIONS = [
+        ['', '— Select class —'],
+        ['forex',     'Forex'],
+        ['metal',     'Metal (XAU, XAG…)'],
+        ['index',     'Index (US500, NAS…)'],
+        ['commodity', 'Commodity (WTI, OIL…)'],
+        ['crypto',    'Crypto'],
+        ['other',     'Other']
+    ];
+
+    const sf = (id, label, hint, inputHtml) => `
+        <div class="spec-field">
+            <label>${label}${hint ? ` <span>${hint}</span>` : ''}</label>
+            ${inputHtml}
+        </div>`;
+
+    el.innerHTML = specs.map(s => {
+        const conf = s.source === 'user_edit' ? 'user'
+            : (s.source_confidence || 'low').toLowerCase();
+        const confLabel = conf === 'user' ? 'Edited' : conf === 'high' ? 'High confidence' : 'Low confidence';
+
+        const classOpts = CLASS_OPTIONS.map(([v, l]) =>
+            `<option value="${v}" ${(s.asset_class || '') === v ? 'selected' : ''}>${l}</option>`
+        ).join('');
+
+        const aiNote = s.notes
+            ? `<div class="spec-ai-note">📌 AI note: ${s.notes}</div>` : '';
+
+        return `<div class="spec-card">
+            <div class="spec-card-head">
+                <div class="spec-symbol">${s.symbol}</div>
+                <div class="spec-badges">
+                    <span class="conf-badge ${conf}">${confLabel}</span>
+                    <button class="spec-del-btn" onclick="deleteAssetSpec('${s.symbol}')" title="Delete spec">✕</button>
+                </div>
+            </div>
+
+            ${sf(`ss_cls_${s.symbol}`, 'Asset Class', 'drives profile commission fallback',
+                `<select id="ss_cls_${s.symbol}">${classOpts}</select>`)}
+
+            ${sf(`ss_cs_${s.symbol}`, 'Contract Size', 'units per 1 standard lot',
+                `<input id="ss_cs_${s.symbol}" type="number" step="any" value="${s.contract_size ?? ''}" placeholder="e.g. 100 for XAU, 1 for index">`)}
+
+            ${sf(`ss_pip_${s.symbol}`, 'Pip Size', 'minimum price movement',
+                `<input id="ss_pip_${s.symbol}" type="number" step="any" value="${s.pip_size ?? ''}" placeholder="e.g. 0.01 for XAU, 1 for US500">`)}
+
+            ${sf(`ss_pv_${s.symbol}`, 'Point Value USD / Lot', 'overrides contract-size calc when set',
+                `<input id="ss_pv_${s.symbol}" type="number" step="any" value="${s.point_value_usd ?? ''}" placeholder="e.g. 1.00 for US500">`)}
+
+            ${sf(`ss_qc_${s.symbol}`, 'Quote Currency', '',
+                `<input id="ss_qc_${s.symbol}" type="text" value="${s.quote_currency ?? ''}" placeholder="USD" style="text-transform:uppercase;">`)}
+
+            ${sf(`ss_comm_${s.symbol}`, 'Commission / Lot (USD)', 'overrides profile class rate for this symbol only',
+                `<input id="ss_comm_${s.symbol}" type="number" step="0.01" value="${s.commission_per_lot ?? ''}" placeholder="Blank = use profile rate">`)}
+
+            ${aiNote}
+
+            ${sf(`ss_notes_${s.symbol}`, 'Your Notes', '',
+                `<textarea id="ss_notes_${s.symbol}" placeholder="e.g. Verified against IC Markets contract specs July 2026">${s.user_notes ?? ''}</textarea>`)}
+
+            <div class="spec-save-row">
+                <button class="btn primary" onclick="saveAssetSpec('${s.symbol}')">Save Changes</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function deleteAssetSpec(symbol) {
+    if (!confirm(`Delete spec for ${symbol}? The AI will re-look it up next time a trade with this symbol syncs.`)) return;
+    await sb.from('asset_specs').delete().eq('user_id', currentUser.id).eq('symbol', symbol);
+    delete assetSpecsCache[symbol];
+    renderAssetSpecsList();
+    renderActiveAccount();
+}
+
+async function saveAssetSpec(symbol) {
+    const btn = document.querySelector(`.spec-card .spec-actions .btn[onclick="saveAssetSpec('${symbol}')"]`);
+    if (btn) { btn.textContent = '⏳ Saving…'; btn.disabled = true; }
+
+    const g = id => document.getElementById(id)?.value ?? '';
+    const pf = id => { const v = parseFloat(g(id)); return isNaN(v) ? null : v; };
+
+    const row = {
+        user_id: currentUser.id,
+        symbol,
+        asset_class:       g(`ss_cls_${symbol}`) || null,
+        contract_size:     pf(`ss_cs_${symbol}`),
+        pip_size:          pf(`ss_pip_${symbol}`),
+        point_value_usd:   pf(`ss_pv_${symbol}`),
+        quote_currency:    g(`ss_qc_${symbol}`).trim().toUpperCase() || null,
+        commission_per_lot: pf(`ss_comm_${symbol}`),
+        user_notes:        g(`ss_notes_${symbol}`).trim() || null,
+        source: 'user_edit',
+        source_confidence: 'high',
+        fetched_at: new Date().toISOString()
+    };
+
+    const { error } = await sb.from('asset_specs').upsert(row, { onConflict: 'user_id,symbol' });
+    if (btn) { btn.textContent = 'Save'; btn.disabled = false; }
+    if (error) { alert('Save failed: ' + error.message); return; }
+    assetSpecsCache[symbol] = { ...assetSpecsCache[symbol], ...row };
+    renderActiveAccount(); // recalculate P&L with updated spec
+}
+
+checkExistingSession();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</body>
+</html>
