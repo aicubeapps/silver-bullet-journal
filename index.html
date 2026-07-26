@@ -335,12 +335,252 @@
 
         <button type="submit" class="generate-btn" id="btnGenerate">Generate &amp; Download ZIP</button>
 
+        <div style="margin-top:10px;padding-top:10px;
+        border-top:1px solid var(--border);">
+            <div style="font-family:var(--font-mono);font-size:8px;
+            color:var(--muted);margin-bottom:8px;line-height:1.7;">
+                OPTIONAL — Download the CF Worker file to enable
+                Forex Factory calendar, Discord feed, and PnL
+                Tracker AI features.
+            </div>
+            <button type="button" onclick="downloadWorker()"
+                style="width:100%;font-family:var(--font-mono);
+                font-size:9px;font-weight:700;padding:10px;
+                border:1.5px solid #f6821f;border-radius:4px;
+                background:transparent;color:#f6821f;cursor:pointer;
+                letter-spacing:1px;">
+                ☁ DOWNLOAD CF WORKER FILE
+            </button>
+        </div>
+
         <div class="footer-note">Your credentials are used only to build your download — nothing is sent to any server.</div>
     </form>
 </div>
 
 <script>
+    const WORKER_JS_CONTENT = `// ICT Trade Journal — Cloudflare Worker
+// Purpose: Proxy for Forex Factory calendar, Discord channel feeds, and Gemini AI.
+// Routes:
+//   GET  /ff-calendar                              — Forex Factory weekly calendar
+//   GET  /discord-messages?channel=ID&limit=25    — Discord channel messages
+//   POST /                                         — Gemini AI (asset_spec / profile_rules)
+//
+// Secrets (set in CF Dashboard → Worker → Settings → Variables → Add secret):
+//   GEMINI_API_KEY  — Google AI Studio key (https://aistudio.google.com/app/apikey)
+//   DISCORD_TOKEN   — Discord user token (optional — only needed for Discord feed)
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders() });
+    }
+
+    if (request.method === "GET" && url.pathname === "/ff-calendar") {
+      try {
+        const ffRes = await fetch(
+          "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+          { headers: { "Accept": "application/json" } }
+        );
+        if (!ffRes.ok) throw new Error("FF upstream HTTP " + ffRes.status);
+        const text = await ffRes.text();
+        if (text.trim().startsWith("<")) {
+          return json({ error: "FF rate limited — try again later" }, 429);
+        }
+        return new Response(text, {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders() }
+        });
+      } catch (e) {
+        return json({ error: "FF calendar fetch failed", detail: e.message }, 502);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/discord-messages") {
+      if (!env.DISCORD_TOKEN) {
+        return json({ error: "DISCORD_TOKEN secret not configured on this Worker" }, 503);
+      }
+      const channelId = url.searchParams.get("channel");
+      const limit     = Math.min(parseInt(url.searchParams.get("limit") || "25", 10), 50);
+      if (!channelId || !/^\\d+$/.test(channelId)) {
+        return json({ error: "Missing or invalid channel parameter" }, 400);
+      }
+      try {
+        const dcRes = await fetch(
+          \`https://discord.com/api/v10/channels/\${channelId}/messages?limit=\${limit}\`,
+          {
+            headers: {
+              "Authorization": env.DISCORD_TOKEN,
+              "Content-Type":  "application/json",
+              "User-Agent":    "DiscordBot (trade-journal, 1.0)"
+            }
+          }
+        );
+        if (!dcRes.ok) {
+          const errText = await dcRes.text();
+          return json(
+            { error: "Discord API error", detail: errText, status: dcRes.status },
+            dcRes.status
+          );
+        }
+        const messages = await dcRes.json();
+        const safe = messages.map(m => ({
+          id:        m.id,
+          content:   m.content,
+          timestamp: m.timestamp,
+          author: {
+            username:     m.author?.username    || "",
+            display_name: m.author?.global_name || m.author?.username || "",
+            avatar:       m.author?.avatar
+              ? \`https://cdn.discordapp.com/avatars/\${m.author.id}/\${m.author.avatar}.png\`
+              : null,
+          },
+          embeds: (m.embeds || []).map(e => ({
+            title:       e.title       || null,
+            description: e.description || null,
+            url:         e.url         || null,
+            color:       e.color       || null,
+          })),
+          attachments: (m.attachments || []).map(a => ({
+            url:          a.url,
+            filename:     a.filename,
+            content_type: a.content_type,
+          })),
+        }));
+        return new Response(JSON.stringify(safe), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders() }
+        });
+      } catch (e) {
+        return json({ error: "Discord fetch failed", detail: e.message }, 502);
+      }
+    }
+
+    if (request.method !== "POST") {
+      return json({ error: "Method not allowed" }, 405);
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return json({ error: "GEMINI_API_KEY secret not configured on this Worker" }, 503);
+    }
+
+    let body;
+    try { body = await request.json(); }
+    catch { return json({ error: "Invalid JSON body" }, 400); }
+
+    const { firmName, accountType, mode, symbol, brokerContext } = body;
+
+    if (mode === "asset_spec") {
+      if (!symbol) return json({ error: "symbol is required for asset_spec mode" }, 400);
+    } else if (mode === "profile_rules") {
+      if (!firmName) return json({ error: "firmName is required for profile_rules mode" }, 400);
+    } else {
+      return json({ error: "unknown mode: " + mode }, 400);
+    }
+
+    const prompt = buildPrompt(mode, firmName, accountType, symbol, brokerContext);
+
+    const geminiRes = await fetch(
+      \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=\${env.GEMINI_API_KEY}\`,
+      {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          contents:         [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      return json(
+        { error: "Gemini request failed", detail: errText, status: geminiRes.status },
+        502
+      );
+    }
+
+    const geminiData = await geminiRes.json();
+    const rawText    = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const cleaned    = rawText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+
+    let parsed;
+    try { parsed = JSON.parse(cleaned); }
+    catch { return json({ error: "Could not parse Gemini response as JSON", raw: rawText }, 502); }
+
+    return json(parsed, 200);
+  }
+};
+
+function buildPrompt(mode, firmName, accountType, symbol, brokerContext) {
+  if (mode === "profile_rules") {
+    const isProp = brokerContext === "prop";
+    const entityLabel = isProp
+      ? \`prop firm "\${firmName}", account type "\${accountType || "unspecified"}"\`
+      : \`broker "\${firmName}"\`;
+    return \`Based on your knowledge, provide the full trading specification for \${entityLabel}.
+Note: you do not have live web access — answer from what you know. Set source_confidence to "low" if uncertain.
+Return ONLY valid JSON, no markdown, no preamble, matching EXACTLY this shape (use null for unknown values):
+{
+  "prop_rules": \${isProp ? \`{
+    "profit_target_pct": number|null,
+    "drawdown_type": "static"|"trailing"|"trailing_to_be"|null,
+    "drawdown_pct": number|null,
+    "daily_loss_limit_pct": number|null,
+    "daily_reset_utc_hour": number|null
+  }\` : "null"},
+  "asset_classes": {
+    "forex":       { "commission_per_lot": number|null, "lot_size": number|null, "pip_size": number|null, "point_value_usd": number|null, "spread_type": "raw_plus_commission"|"spread_only"|null, "notes": string|null },
+    "metals":      { "commission_per_lot": number|null, "lot_size_xau": number|null, "lot_size_xag": number|null, "pip_size_xau": number|null, "pip_size_xag": number|null, "point_value_xau_usd": number|null, "point_value_xag_usd": number|null, "notes": string|null },
+    "indices":     { "commission_per_lot": number|null, "lot_size": number|null, "point_value_usd": number|null, "notes": string|null },
+    "commodities": { "commission_per_lot": number|null, "lot_size": number|null, "point_value_usd": number|null, "notes": string|null }
+  },
+  "source_confidence": "high"|"low",
+  "notes": string|null
+}\`;
+  }
+
+  if (mode === "asset_spec") {
+    return \`Based on your knowledge, what is the standard contract specification for "\${symbol}"\${brokerContext ? \` on "\${brokerContext}"\` : ""}?
+Return ONLY valid JSON, no markdown, no preamble:
+{
+  "contract_size": number|null,
+  "quote_currency": string|null,
+  "point_value_usd": number|null,
+  "source_confidence": "high"|"low",
+  "notes": string
+}\`;
+  }
+
+  return \`Return ONLY this JSON: {"error": "unknown mode"}\`;
+}
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+}
+
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders() }
+  });
+}`;
+
     let pairs = ['EURUSD', 'GBPUSD', 'USDCHF', 'XAUUSD'];
+
+    function downloadWorker() {
+        const blob = new Blob([WORKER_JS_CONTENT], { type: 'text/javascript' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'worker.js';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
 
     function renderPairs() {
         const wrap = document.getElementById('pairsTagWrap');
@@ -485,59 +725,71 @@ The CF Worker enables three additional features:
 
 Without the worker these sections show
 "Needs additional configuration" — everything else works
-including the journal AI review feature.
+including journal AI trade review.
 
-### 3.1 Deploy the worker
+### 3.1 Download the worker file
 
-Click the button below or find it in your journal under
-Settings → CF Worker → Deploy to Cloudflare.
+On the setup page click "Download CF Worker File".
+This downloads worker.js to your computer.
 
-Deploy URL:
-https://deploy.workers.cloudflare.com/?url=https://github.com/aicubeapps/trade-journal-worker
+### 3.2 Create a new Worker in Cloudflare
 
-This opens Cloudflare — log in and your worker deploys
-automatically. No code editing required.
+1. Go to https://dash.cloudflare.com
+2. Click Workers & Pages → Create → Create Worker
+3. Give it a name e.g. "trade-journal-worker"
+4. Click "Edit code"
+5. Select all the default code and delete it
+6. Paste the full contents of the downloaded worker.js
+7. Click "Deploy"
 
-### 3.2 Set your secrets (CF Dashboard)
+### 3.3 Set your secrets
 
-Go to: Workers & Pages → trade-journal-worker →
-Settings → Variables → Add variable (select Encrypt)
+Go to: Workers & Pages → your-worker → Settings →
+Variables → Add variable (select Encrypt for each)
 
-| Secret name     | Value                   | Required for          |
-|-----------------|-------------------------|------------------------|
-| GEMINI_API_KEY  | Your Gemini API key     | PnL Tracker AI         |
-| DISCORD_TOKEN   | Your Discord user token | Discord feed           |
+| Secret name     | Value                   | Required for       |
+|-----------------|-------------------------|---------------------|
+| GEMINI_API_KEY  | Your Gemini API key     | PnL Tracker AI      |
+| DISCORD_TOKEN   | Your Discord user token | Discord feed        |
 
-Both are optional. Add only the ones you want.
+Both are optional — add only the ones you want.
 
-Get a free Gemini key at: https://aistudio.google.com/app/apikey
+Get a free Gemini key at:
+https://aistudio.google.com/app/apikey
 
-For Discord token: open Discord in browser → DevTools (F12)
-→ Network tab → click any channel → find a discord.com/api
-request → Request Headers → Authorization value.
+For your Discord token:
+1. Open Discord in a browser (discord.com/app)
+2. Open DevTools (F12) → Network tab
+3. Click any channel
+4. Find a request to discord.com/api → click it
+5. Under Request Headers find Authorization
+6. Copy that value — paste as DISCORD_TOKEN secret
 
-### 3.3 Get your worker URL
+Click Save and deploy after adding secrets.
 
-After deployment your worker URL will be:
-https://trade-journal-worker.YOUR-SUBDOMAIN.workers.dev
+### 3.4 Get your Worker URL
 
-Find it under Workers & Pages → trade-journal-worker → Overview.
+After deployment your Worker URL will be:
+https://your-worker-name.YOUR-SUBDOMAIN.workers.dev
 
-### 3.4 Enter worker URL in Journal Settings
+Find it under Workers & Pages → your worker → Overview.
+
+### 3.5 Enter Worker URL in Journal Settings
 
 1. Open your journal
 2. Go to Settings → CF Worker
-3. Paste your worker URL and click SAVE
-4. Advanced features activate immediately
+3. Paste your Worker URL and click SAVE
+4. Forex Factory calendar, Discord feed, and PnL
+   Tracker AI activate immediately
 
-### 3.5 Journal AI Review (separate from worker)
+### 3.6 Journal AI Review (no Worker needed)
 
-The journal's AI trade review calls Gemini directly
-from your browser — it does NOT need the CF Worker.
+The journal AI trade review calls Gemini directly
+from your browser — no CF Worker required.
 
 1. Go to Settings → AI Review
-2. Enter your Gemini API key
-3. Close any daily trade — AI review generates automatically
+2. Enter your free Gemini API key
+3. Close any daily trade — AI review runs automatically
 
 ---
 

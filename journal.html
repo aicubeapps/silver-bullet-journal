@@ -6451,13 +6451,18 @@
                                 then enter the URL below.
                             </div>
                             <div style="margin-bottom:12px;">
-                                <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/aicubeapps/trade-journal-worker"
-                                   target="_blank"
-                                   style="display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:8px;font-weight:700;padding:8px 16px;border:1.5px solid #f6821f;border-radius:4px;background:#f6821f;color:#fff;text-decoration:none;letter-spacing:1px;">
-                                   ☁ DEPLOY TO CLOUDFLARE
-                                </a>
-                                <div style="font-family:var(--font-mono);font-size:7px;color:var(--muted);margin-top:6px;">
-                                    Opens Cloudflare — log in and deploy your worker in one click.
+                                <button onclick="downloadCfWorker()"
+                                    style="display:inline-flex;align-items:center;gap:8px;
+                                    font-family:var(--font-mono);font-size:8px;font-weight:700;
+                                    padding:8px 16px;border:1.5px solid #f6821f;border-radius:4px;
+                                    background:#f6821f;color:#fff;cursor:pointer;letter-spacing:1px;
+                                    border:none;">
+                                    ☁ DOWNLOAD CF WORKER FILE
+                                </button>
+                                <div style="font-family:var(--font-mono);font-size:7px;
+                                color:var(--muted);margin-top:6px;">
+                                    Paste into a new Cloudflare Worker via CF Dashboard →
+                                    Workers & Pages → Create Worker → Edit code.
                                 </div>
                             </div>
                             <div class="field" style="margin-bottom:10px;">
@@ -7500,6 +7505,227 @@
                 const el = document.getElementById('cfWorkerSaveStatus');
                 if (el) el.textContent = '';
             }, 2000);
+        }
+
+        function downloadCfWorker() {
+            const workerJs = `// ICT Trade Journal — Cloudflare Worker
+// Purpose: Proxy for Forex Factory calendar, Discord channel feeds, and Gemini AI.
+// Routes:
+//   GET  /ff-calendar                              — Forex Factory weekly calendar
+//   GET  /discord-messages?channel=ID&limit=25    — Discord channel messages
+//   POST /                                         — Gemini AI (asset_spec / profile_rules)
+//
+// Secrets (set in CF Dashboard → Worker → Settings → Variables → Add secret):
+//   GEMINI_API_KEY  — Google AI Studio key (https://aistudio.google.com/app/apikey)
+//   DISCORD_TOKEN   — Discord user token (optional — only needed for Discord feed)
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+
+    if (request.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders() });
+    }
+
+    if (request.method === "GET" && url.pathname === "/ff-calendar") {
+      try {
+        const ffRes = await fetch(
+          "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+          { headers: { "Accept": "application/json" } }
+        );
+        if (!ffRes.ok) throw new Error("FF upstream HTTP " + ffRes.status);
+        const text = await ffRes.text();
+        if (text.trim().startsWith("<")) {
+          return json({ error: "FF rate limited — try again later" }, 429);
+        }
+        return new Response(text, {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders() }
+        });
+      } catch (e) {
+        return json({ error: "FF calendar fetch failed", detail: e.message }, 502);
+      }
+    }
+
+    if (request.method === "GET" && url.pathname === "/discord-messages") {
+      if (!env.DISCORD_TOKEN) {
+        return json({ error: "DISCORD_TOKEN secret not configured on this Worker" }, 503);
+      }
+      const channelId = url.searchParams.get("channel");
+      const limit     = Math.min(parseInt(url.searchParams.get("limit") || "25", 10), 50);
+      if (!channelId || !/^\\d+$/.test(channelId)) {
+        return json({ error: "Missing or invalid channel parameter" }, 400);
+      }
+      try {
+        const dcRes = await fetch(
+          \`https://discord.com/api/v10/channels/\${channelId}/messages?limit=\${limit}\`,
+          {
+            headers: {
+              "Authorization": env.DISCORD_TOKEN,
+              "Content-Type":  "application/json",
+              "User-Agent":    "DiscordBot (trade-journal, 1.0)"
+            }
+          }
+        );
+        if (!dcRes.ok) {
+          const errText = await dcRes.text();
+          return json(
+            { error: "Discord API error", detail: errText, status: dcRes.status },
+            dcRes.status
+          );
+        }
+        const messages = await dcRes.json();
+        const safe = messages.map(m => ({
+          id:        m.id,
+          content:   m.content,
+          timestamp: m.timestamp,
+          author: {
+            username:     m.author?.username    || "",
+            display_name: m.author?.global_name || m.author?.username || "",
+            avatar:       m.author?.avatar
+              ? \`https://cdn.discordapp.com/avatars/\${m.author.id}/\${m.author.avatar}.png\`
+              : null,
+          },
+          embeds: (m.embeds || []).map(e => ({
+            title:       e.title       || null,
+            description: e.description || null,
+            url:         e.url         || null,
+            color:       e.color       || null,
+          })),
+          attachments: (m.attachments || []).map(a => ({
+            url:          a.url,
+            filename:     a.filename,
+            content_type: a.content_type,
+          })),
+        }));
+        return new Response(JSON.stringify(safe), {
+          status: 200,
+          headers: { "Content-Type": "application/json", ...corsHeaders() }
+        });
+      } catch (e) {
+        return json({ error: "Discord fetch failed", detail: e.message }, 502);
+      }
+    }
+
+    if (request.method !== "POST") {
+      return json({ error: "Method not allowed" }, 405);
+    }
+
+    if (!env.GEMINI_API_KEY) {
+      return json({ error: "GEMINI_API_KEY secret not configured on this Worker" }, 503);
+    }
+
+    let body;
+    try { body = await request.json(); }
+    catch { return json({ error: "Invalid JSON body" }, 400); }
+
+    const { firmName, accountType, mode, symbol, brokerContext } = body;
+
+    if (mode === "asset_spec") {
+      if (!symbol) return json({ error: "symbol is required for asset_spec mode" }, 400);
+    } else if (mode === "profile_rules") {
+      if (!firmName) return json({ error: "firmName is required for profile_rules mode" }, 400);
+    } else {
+      return json({ error: "unknown mode: " + mode }, 400);
+    }
+
+    const prompt = buildPrompt(mode, firmName, accountType, symbol, brokerContext);
+
+    const geminiRes = await fetch(
+      \`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=\${env.GEMINI_API_KEY}\`,
+      {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          contents:         [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.2 }
+        })
+      }
+    );
+
+    if (!geminiRes.ok) {
+      const errText = await geminiRes.text();
+      return json(
+        { error: "Gemini request failed", detail: errText, status: geminiRes.status },
+        502
+      );
+    }
+
+    const geminiData = await geminiRes.json();
+    const rawText    = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const cleaned    = rawText.replace(/\`\`\`json|\`\`\`/g, "").trim();
+
+    let parsed;
+    try { parsed = JSON.parse(cleaned); }
+    catch { return json({ error: "Could not parse Gemini response as JSON", raw: rawText }, 502); }
+
+    return json(parsed, 200);
+  }
+};
+
+function buildPrompt(mode, firmName, accountType, symbol, brokerContext) {
+  if (mode === "profile_rules") {
+    const isProp = brokerContext === "prop";
+    const entityLabel = isProp
+      ? \`prop firm "\${firmName}", account type "\${accountType || "unspecified"}"\`
+      : \`broker "\${firmName}"\`;
+    return \`Based on your knowledge, provide the full trading specification for \${entityLabel}.
+Note: you do not have live web access — answer from what you know. Set source_confidence to "low" if uncertain.
+Return ONLY valid JSON, no markdown, no preamble, matching EXACTLY this shape (use null for unknown values):
+{
+  "prop_rules": \${isProp ? \`{
+    "profit_target_pct": number|null,
+    "drawdown_type": "static"|"trailing"|"trailing_to_be"|null,
+    "drawdown_pct": number|null,
+    "daily_loss_limit_pct": number|null,
+    "daily_reset_utc_hour": number|null
+  }\` : "null"},
+  "asset_classes": {
+    "forex":       { "commission_per_lot": number|null, "lot_size": number|null, "pip_size": number|null, "point_value_usd": number|null, "spread_type": "raw_plus_commission"|"spread_only"|null, "notes": string|null },
+    "metals":      { "commission_per_lot": number|null, "lot_size_xau": number|null, "lot_size_xag": number|null, "pip_size_xau": number|null, "pip_size_xag": number|null, "point_value_xau_usd": number|null, "point_value_xag_usd": number|null, "notes": string|null },
+    "indices":     { "commission_per_lot": number|null, "lot_size": number|null, "point_value_usd": number|null, "notes": string|null },
+    "commodities": { "commission_per_lot": number|null, "lot_size": number|null, "point_value_usd": number|null, "notes": string|null }
+  },
+  "source_confidence": "high"|"low",
+  "notes": string|null
+}\`;
+  }
+
+  if (mode === "asset_spec") {
+    return \`Based on your knowledge, what is the standard contract specification for "\${symbol}"\${brokerContext ? \` on "\${brokerContext}"\` : ""}?
+Return ONLY valid JSON, no markdown, no preamble:
+{
+  "contract_size": number|null,
+  "quote_currency": string|null,
+  "point_value_usd": number|null,
+  "source_confidence": "high"|"low",
+  "notes": string
+}\`;
+  }
+
+  return \`Return ONLY this JSON: {"error": "unknown mode"}\`;
+}
+
+function corsHeaders() {
+  return {
+    "Access-Control-Allow-Origin":  "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+}
+
+function json(obj, status) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json", ...corsHeaders() }
+  });
+}`;
+            const blob = new Blob([workerJs], { type: 'text/javascript' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'worker.js';
+            a.click();
+            URL.revokeObjectURL(a.href);
         }
 
         async function saveDiscordChannels(channels) {
