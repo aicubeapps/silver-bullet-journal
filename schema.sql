@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS sync_meta (
   last_modified    TIMESTAMPTZ,
   last_device      TEXT,
   pnl_url          TEXT,
-  discord_channels JSONB
+  discord_channels JSONB,
+  cf_worker_url    TEXT
 );
 ALTER TABLE sync_meta ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users manage own sync_meta" ON sync_meta

@@ -441,7 +441,7 @@ to deploy. Follow the steps below in order.
 ### 1.3 Create storage bucket
 1. Go to Storage in your Supabase project
 2. Click "New bucket"
-3. Name it: trade-screenshots
+3. Name it: screenshots
 4. Set to: Private
 5. Click Create
 
@@ -469,9 +469,10 @@ Go to https://cloudflare.com and sign up for free.
 
 ### 2.3 Deploy the PnL Tracker
 1. Repeat the steps above for pnl.html
-2. IMPORTANT: Use exactly this project name:
-   [your chosen subdomain from setup]
-   so your journal can find it automatically
+2. Note the URL Cloudflare gives you
+   (e.g. your-project-name.pages.dev)
+3. Open your journal → Settings → PnL Tracker →
+   paste that URL and click SAVE
 
 ---
 
@@ -479,42 +480,64 @@ Go to https://cloudflare.com and sign up for free.
 
 The CF Worker enables three additional features:
 - Forex Factory economic calendar
-- Gemini AI trade review
 - Discord news feed
+- PnL Tracker AI (broker profile rules and asset specs)
 
 Without the worker these sections show
-"Needs additional configuration" — everything else works.
+"Needs additional configuration" — everything else works
+including the journal AI review feature.
 
-### 3.1 Find the worker template
-Search "ICT Trade Journal Worker" on the
-Cloudflare Workers marketplace, or use the direct link
-provided by the seller.
+### 3.1 Deploy the worker
 
-### 3.2 Deploy with one click
-Click "Deploy to Cloudflare" on the template page.
-This creates your own worker instance — no code editing needed.
+Click the button below or find it in your journal under
+Settings → CF Worker → Deploy to Cloudflare.
 
-### 3.3 Set your secrets (CF Dashboard)
-In your worker settings → Variables → add these secrets:
+Deploy URL:
+https://deploy.workers.cloudflare.com/?url=https://github.com/aicubeapps/trade-journal-worker
 
-| Secret name     | Value                        | Required? |
-|-----------------|------------------------------|-----------|
-| DISCORD_TOKEN   | Your Discord user token      | Optional  |
-| GEMINI_API_KEY  | Your Gemini API key          | Optional  |
+This opens Cloudflare — log in and your worker deploys
+automatically. No code editing required.
+
+### 3.2 Set your secrets (CF Dashboard)
+
+Go to: Workers & Pages → trade-journal-worker →
+Settings → Variables → Add variable (select Encrypt)
+
+| Secret name     | Value                   | Required for          |
+|-----------------|-------------------------|------------------------|
+| GEMINI_API_KEY  | Your Gemini API key     | PnL Tracker AI         |
+| DISCORD_TOKEN   | Your Discord user token | Discord feed           |
 
 Both are optional. Add only the ones you want.
-- Discord token: enables the Discord news feed
-- Gemini API key: enables AI trade review
 
-### 3.4 Get your worker URL
+Get a free Gemini key at: https://aistudio.google.com/app/apikey
+
+For Discord token: open Discord in browser → DevTools (F12)
+→ Network tab → click any channel → find a discord.com/api
+request → Request Headers → Authorization value.
+
+### 3.3 Get your worker URL
+
 After deployment your worker URL will be:
-https://your-worker-name.workers.dev
+https://trade-journal-worker.YOUR-SUBDOMAIN.workers.dev
 
-### 3.5 Enter worker URL in Journal Settings
+Find it under Workers & Pages → trade-journal-worker → Overview.
+
+### 3.4 Enter worker URL in Journal Settings
+
 1. Open your journal
-2. Go to Settings → scroll to CF Worker section
-3. Enter your worker URL
-4. Save — advanced features activate immediately
+2. Go to Settings → CF Worker
+3. Paste your worker URL and click SAVE
+4. Advanced features activate immediately
+
+### 3.5 Journal AI Review (separate from worker)
+
+The journal's AI trade review calls Gemini directly
+from your browser — it does NOT need the CF Worker.
+
+1. Go to Settings → AI Review
+2. Enter your Gemini API key
+3. Close any daily trade — AI review generates automatically
 
 ---
 

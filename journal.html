@@ -6441,6 +6441,36 @@
                         </div>
                     </div>
 
+                    <!-- CF WORKER -->
+                    <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px;">
+                        <div style="padding:10px 14px;background:var(--cream);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);">CF WORKER</div>
+                        <div style="padding:14px;">
+                            <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);line-height:1.8;margin-bottom:12px;">
+                                The CF Worker enables Forex Factory calendar, Discord feed,
+                                and PnL Tracker AI features. Deploy your own instance first,
+                                then enter the URL below.
+                            </div>
+                            <div style="margin-bottom:12px;">
+                                <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/aicubeapps/trade-journal-worker"
+                                   target="_blank"
+                                   style="display:inline-flex;align-items:center;gap:8px;font-family:var(--font-mono);font-size:8px;font-weight:700;padding:8px 16px;border:1.5px solid #f6821f;border-radius:4px;background:#f6821f;color:#fff;text-decoration:none;letter-spacing:1px;">
+                                   ☁ DEPLOY TO CLOUDFLARE
+                                </a>
+                                <div style="font-family:var(--font-mono);font-size:7px;color:var(--muted);margin-top:6px;">
+                                    Opens Cloudflare — log in and deploy your worker in one click.
+                                </div>
+                            </div>
+                            <div class="field" style="margin-bottom:10px;">
+                                <label style="font-family:var(--font-mono);font-size:8px;font-weight:700;letter-spacing:1px;color:var(--muted);">YOUR WORKER URL</label>
+                                <input type="text" id="cfWorkerUrlInput"
+                                    placeholder="https://trade-journal-worker.your-subdomain.workers.dev"
+                                    style="width:100%;padding:8px;border:1.5px solid var(--border);border-radius:4px;background:var(--surface);color:var(--ink);font-family:var(--font-mono);font-size:11px;box-sizing:border-box;">
+                            </div>
+                            <button onclick="saveCfWorkerUrl()" style="font-family:var(--font-mono);font-size:8px;font-weight:700;padding:7px 14px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:4px;cursor:pointer;">SAVE</button>
+                            <span id="cfWorkerSaveStatus" style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-left:8px;"></span>
+                        </div>
+                    </div>
+
                     <!-- DISCORD CHANNELS -->
                     <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:6px;overflow:hidden;margin-bottom:14px;">
                         <div style="padding:10px 14px;background:var(--cream);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:9px;font-weight:700;letter-spacing:1.5px;color:var(--muted);">DISCORD CHANNELS</div>
@@ -7448,6 +7478,28 @@
             } catch (e) {
                 showToast('Save failed: ' + e.message, 'err');
             }
+        }
+
+        async function saveCfWorkerUrl() {
+            const url = (document.getElementById('cfWorkerUrlInput')?.value || '').trim().replace(/\/$/, '');
+            if (!url) {
+                document.getElementById('cfWorkerSaveStatus').textContent = '⚠ Enter a URL first';
+                return;
+            }
+            CONFIG.CF_WORKER = url;
+            if (_currentUser) {
+                try {
+                    await _sb.from('sync_meta').upsert(
+                        { user_id: _currentUser.id, cf_worker_url: url },
+                        { onConflict: 'user_id' }
+                    );
+                } catch(e) { console.warn('saveCfWorkerUrl failed:', e); }
+            }
+            document.getElementById('cfWorkerSaveStatus').textContent = '✓ Saved';
+            setTimeout(() => {
+                const el = document.getElementById('cfWorkerSaveStatus');
+                if (el) el.textContent = '';
+            }, 2000);
         }
 
         async function saveDiscordChannels(channels) {
@@ -9045,7 +9097,7 @@
             setSyncStatus('syncing');
             loadPnlAccounts(); // fire-and-forget — non-blocking, non-fatal if tracker unreachable
             try {
-                const { data: meta, error: metaErr } = await _sb.from('sync_meta').select('last_modified,last_device,pnl_url,discord_channels').eq('user_id',
+                const { data: meta, error: metaErr } = await _sb.from('sync_meta').select('last_modified,last_device,pnl_url,discord_channels,cf_worker_url').eq('user_id',
                     _currentUser.id).maybeSingle();
                 if (metaErr) throw metaErr;
                 const serverLastMod = meta ? meta.last_modified : null;
@@ -9055,6 +9107,7 @@
                 if (meta?.discord_channels && Array.isArray(meta.discord_channels) && meta.discord_channels.length) {
                     DC.setChannels(meta.discord_channels);
                 }
+                if (meta?.cf_worker_url) { CONFIG.CF_WORKER = meta.cf_worker_url; }
                 const cachedLastMod = getCachedLastMod();
                 if (!force && serverLastMod && serverLastMod === cachedLastMod && loadLocalCache()) {
                     setSyncStatus('synced');
@@ -15932,6 +15985,8 @@
             }
             const pnlUrlEl = document.getElementById('settingsPnlUrl');
             if (pnlUrlEl && CONFIG.PNL_URL) pnlUrlEl.value = CONFIG.PNL_URL;
+            const cfWorkerEl = document.getElementById('cfWorkerUrlInput');
+            if (cfWorkerEl && CONFIG.CF_WORKER) cfWorkerEl.value = CONFIG.CF_WORKER;
             const ebpUrl = localStorage.getItem('ict_ebp_worker_url');
             const ebpSec = localStorage.getItem('ict_ebp_secret');
             const ebpUrlEl = document.getElementById('ebpWorkerUrl');
@@ -20068,6 +20123,7 @@ NEXT_WEEK: [one concrete focus tied to this week's observations]`;
                 if (!ch || st.fetching) return;
                 if (!CF_WORKER) {
                     _renderNeedsConfig('dcMessagesPanel');
+                    st.fetching = false;
                     return;
                 }
                 st.fetching = true;
@@ -20108,6 +20164,10 @@ NEXT_WEEK: [one concrete focus tied to this week's observations]`;
                 _state     = _channels.map(() => ({ messages:[], before:null, fetching:false, hasMore:false, status:null }));
                 _activeIdx = Math.min(_loadActiveIdx(), _channels.length - 1);
                 _renderSidebar();
+                if (!CF_WORKER) {
+                    _renderNeedsConfig('dcMessagesPanel');
+                    return;
+                }
                 _renderMessages(_activeIdx);
                 // Fetch the active channel immediately, others lazily when selected
                 await _fetchChannel(_activeIdx);
